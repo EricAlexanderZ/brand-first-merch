@@ -9,7 +9,7 @@ export const categories: Category[] = [
   {
     name: "Custom Hats",
     href: "/products/custom-hats",
-    image: "/images/home/Home Content/PREMIUM_STITCH_ELHILOCO.svg"
+    image: "/images/products/cap-110-b2z.webp"
   },
   {
     name: "Custom Polos",
@@ -39,12 +39,23 @@ export const categories: Category[] = [
     href: "/products/shirt-printing",
     image: "/images/products/shirt-printing-front.webp"
   },
+  {
+    name: "Safety Vests",
+    href: "/products/new-hire",
+    image: "/images/products/safety-vest-back.webp"
+  },
 ];
 
 export const bestSellers = [
   {
+    title: "The New Hire — $115",
+    image: "/images/products/safety-vest-front.webp",
+    href: "/products/new-hire",
+    imageScale: "scale-[1]",
+  },
+  {
     title: "Premium Stitched",
-    image: "/images/home/Home Content/PREMIUM_STITCH_ELHILOCO.svg",
+    image: "/images/products/cap-110-b2z.webp",
     href: "/products/custom-hats",
     imageScale: "scale-[1]",
   },

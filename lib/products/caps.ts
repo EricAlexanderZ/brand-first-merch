@@ -57,7 +57,7 @@ export function getAngles(styleId: string): PreviewAngle[] {
 // Shared colorway sets
 // ---------------------------------------------------------------------------
 
-const SOLIDS: CapColor[] = [
+export const SOLIDS: CapColor[] = [
   { name: "Black",         hex: "#111111" },
   { name: "White",         hex: "#f5f5f5" },
   { name: "Navy",          hex: "#13294b" },

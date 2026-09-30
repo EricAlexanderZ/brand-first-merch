@@ -38,7 +38,7 @@ function formatDetailKey(key: string): string {
 function getUploadSlot(placement: string) {
   return {
     title:       `${placement} Artwork`,
-    subtitle:    `Upload your artwork for the ${placement.toLowerCase()} embroidery position.`,
+    subtitle:    `Upload your artwork for the ${placement.toLowerCase()}.`,
     buttonLabel: `Upload ${placement.toLowerCase()} artwork`,
   };
 }

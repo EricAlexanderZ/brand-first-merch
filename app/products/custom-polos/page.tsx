@@ -18,43 +18,15 @@ import {
   type QuantityOption,
 } from "@/components/products/product-ui";
 import { getUnitPrice } from "@/lib/products/pricing";
+import {
+  POLO_STYLE as STYLE,
+  POLO_COLORS as colors,
+  POLO_SIZES as SIZES,
+  POLO_FITS as FITS,
+} from "@/lib/products/polos";
 
 // ─── Data ─────────────────────────────────────────────────────
 
-const STYLE = "BAW 100% Polyester Polo";
-
-type PoloColor = { name: string; hex: string; front: string };
-
-const BASE = "/images/home/BAW%20Polos/";
-const img  = (front: string): { front: string } => ({ front: BASE + front });
-
-const colors: PoloColor[] = [
-  { name: "Black",         hex: "#111111", ...img("Black_Front.jpeg")         },
-  { name: "Canary",        hex: "#f5d000", ...img("Canary_Front.jpeg")        },
-  { name: "Cardinal",      hex: "#8b1a2a", ...img("Cardinal_Front.jpeg")      },
-  { name: "Charcoal",      hex: "#4a4a4a", ...img("Charcoal_Front.jpeg")      },
-  { name: "Columbia Blue", hex: "#6ea8cd", ...img("Columbia_Blue_Front.jpeg") },
-  { name: "Dark Green",    hex: "#1f5f3b", ...img("Dark_Green_Front.jpeg")    },
-  { name: "Gold",          hex: "#c4922a", ...img("Gold_Front.jpeg")          },
-  { name: "Heathered Gray",hex: "#9e9e9e", ...img("Heathered_Gray_Front.jpeg")},
-  { name: "Kelly",         hex: "#2e7d32", ...img("Kelly_Front.jpeg")         },
-  { name: "Light Pink",    hex: "#f5b8c8", ...img("Light_Pink_Front.jpeg")    },
-  { name: "Maroon",        hex: "#6b1023", ...img("Maroon_Front.jpeg")        },
-  { name: "Navy",          hex: "#13294b", ...img("Navy_Front.jpeg")          },
-  { name: "Neon Pink",     hex: "#f060a0", ...img("Neon_Pink_Front.jpeg")     },
-  { name: "Orange",        hex: "#e87020", ...img("Orange_Front.jpeg")        },
-  { name: "Peach",         hex: "#f4b896", ...img("Peach_Front.jpeg")         },
-  { name: "Purple",        hex: "#6b3494", ...img("Purple_Front.jpeg")        },
-  { name: "Red",           hex: "#cc2222", ...img("Red_Front.jpeg")           },
-  { name: "Royal",         hex: "#2355b8", ...img("Royal_Front.jpeg")         },
-  { name: "Sea Foam",      hex: "#5fbfad", ...img("Sea_Foam_Front.jpeg")      },
-  { name: "Silver",        hex: "#c0c0c0", ...img("Silver_Front.jpeg")        },
-  { name: "Sky Blue",      hex: "#4db8e8", ...img("Sky_Blue_Front.jpeg")      },
-  { name: "Teal",          hex: "#008080", ...img("Teal_Front.jpeg")          },
-  { name: "Texas Orange",  hex: "#c14c00", ...img("Texas_Orange_Front.jpeg")  },
-  { name: "Vegas Gold",    hex: "#c5a028", ...img("Vegas_Gold_Front.jpeg")    },
-  { name: "White",         hex: "#f5f5f5", ...img("White_Front.jpeg")         },
-];
 
 /**
  * One-tap presets. Anything else is typed into the custom box.
@@ -71,46 +43,8 @@ const quantities: QuantityOption[] = QUANTITY_PRESETS.map((qty) => ({
   price: qty * getUnitPrice("Custom Polos", qty),
 }));
 
-/*
- * Cut, not a separate product.
- *
- * A women's polo is the same garment class, the same embroidery and the same
- * price as the men's, so it belongs here rather than on a page of its own: one
- * price table to keep current, and a customer kitting out a mixed team picks
- * per line instead of checking out twice.
- *
- * `photo` is set only where a real per-colour photograph exists. The men's line
- * has 25; the women's cuts currently have one mockup each, so they fall back to
- * that single image and the UI says so rather than implying the shown colour is
- * the only one available. Drop more photos in and the fallback stops applying.
- */
-type Fit = {
-  id: string;
-  label: string;
-  /** Shown when the selected colour has no photograph for this cut. */
-  fallbackImage?: string;
-  note?: string;
-};
-
-const FITS: Fit[] = [
-  { id: "mens", label: "Men's" },
-  {
-    id: "womens",
-    label: "Women's",
-    fallbackImage: "/images/products/polo-womens.webp",
-    note: "Women's cut, short sleeve. Photographed in one colourway; the full colour range below is available.",
-  },
-  {
-    id: "womens-34",
-    label: "Women's 3/4 Sleeve",
-    fallbackImage: "/images/products/polo-womens-three-quarter.webp",
-    note: "Women's cut, three-quarter sleeve. Photographed in one colourway; the full colour range below is available.",
-  },
-];
-
 const DUAL_PER_PIECE = 5;
 
-const SIZES = ["XS", "S", "M", "L", "XL", "2XL", "3XL"];
 
 const reviews = [
   { initials: "JM", title: "Great for our team uniforms",  date: "04/10/2026", text: "The polos came out sharp. Clean embroidery, great color, and the team loved them." },
