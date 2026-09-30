@@ -1,6 +1,6 @@
 "use client";
 
-import { ChangeEvent, useMemo, useState } from "react";
+import { ChangeEvent, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { PRODUCT_FEATURES } from "@/lib/products/features";
 import { SiteHeader, TopBanner } from "@/components/site-header";
@@ -71,6 +71,43 @@ const quantities: QuantityOption[] = QUANTITY_PRESETS.map((qty) => ({
   price: qty * getUnitPrice("Custom Polos", qty),
 }));
 
+/*
+ * Cut, not a separate product.
+ *
+ * A women's polo is the same garment class, the same embroidery and the same
+ * price as the men's, so it belongs here rather than on a page of its own: one
+ * price table to keep current, and a customer kitting out a mixed team picks
+ * per line instead of checking out twice.
+ *
+ * `photo` is set only where a real per-colour photograph exists. The men's line
+ * has 25; the women's cuts currently have one mockup each, so they fall back to
+ * that single image and the UI says so rather than implying the shown colour is
+ * the only one available. Drop more photos in and the fallback stops applying.
+ */
+type Fit = {
+  id: string;
+  label: string;
+  /** Shown when the selected colour has no photograph for this cut. */
+  fallbackImage?: string;
+  note?: string;
+};
+
+const FITS: Fit[] = [
+  { id: "mens", label: "Men's" },
+  {
+    id: "womens",
+    label: "Women's",
+    fallbackImage: "/images/products/polo-womens.webp",
+    note: "Women's cut, short sleeve. Photographed in one colourway; the full colour range below is available.",
+  },
+  {
+    id: "womens-34",
+    label: "Women's 3/4 Sleeve",
+    fallbackImage: "/images/products/polo-womens-three-quarter.webp",
+    note: "Women's cut, three-quarter sleeve. Photographed in one colourway; the full colour range below is available.",
+  },
+];
+
 const DUAL_PER_PIECE = 5;
 
 const SIZES = ["XS", "S", "M", "L", "XL", "2XL", "3XL"];
@@ -93,6 +130,7 @@ function sanitizeName(value: string): string {
 export default function CustomPolosPage() {
   const router = useRouter();
 
+  const [selectedFit,         setSelectedFit]         = useState<string>("mens");
   const [selectedColor,       setSelectedColor]       = useState("Black");
   const [selectedQuantity,    setSelectedQuantity]    = useState("5 Polos");
   const [isCustomQuantity,    setIsCustomQuantity]    = useState(false);
@@ -110,7 +148,25 @@ export default function CustomPolosPage() {
     [selectedQuantity]
   );
 
+  /*
+   * Honour ?fit=<id> so the "Women's Polos" tile lands on the right cut.
+   *
+   * Read in an effect rather than with useSearchParams: that hook opts the
+   * route out of static rendering unless it is wrapped in Suspense, and this
+   * page has no other reason to be dynamic. Reading it during render from
+   * window would mismatch hydration instead.
+   */
+  useEffect(() => {
+    const wanted = new URLSearchParams(window.location.search).get("fit");
+    if (wanted && FITS.some((f) => f.id === wanted)) setSelectedFit(wanted);
+  }, []);
+
   const currentColor = colors.find((c) => c.name === selectedColor) ?? colors[0];
+  const currentFit   = FITS.find((f) => f.id === selectedFit) ?? FITS[0];
+  // Men's shows the real photograph for the chosen colour; the women's cuts
+  // fall back to their mockup until per-colour photos exist.
+  const previewImage = currentFit.fallbackImage ?? currentColor.front;
+  const fitStyle     = currentFit.id === "mens" ? STYLE : `${STYLE} (${currentFit.label})`;
 
   const parsedCustomQty = Number(customQuantity);
   const customQtyIsValid =
@@ -165,10 +221,10 @@ export default function CustomPolosPage() {
       .filter(Boolean).join(", ");
     const sizes = SIZES.filter((s) => (sizeBreakdown[s] || 0) > 0)
       .map((s) => `${s}×${sizeBreakdown[s]}`).join(", ");
-    sessionStorage.setItem("cartItemImage", currentColor.front);
+    sessionStorage.setItem("cartItemImage", previewImage);
     const params = new URLSearchParams({
       productType:      "Custom Polos",
-      style:            STYLE,
+      style:            fitStyle,
       color:            selectedColor,
       quantity:         isCustomQuantity && customQtyIsValid ? String(parsedCustomQty) : selectedQuantity,
       placement,
@@ -190,7 +246,7 @@ export default function CustomPolosPage() {
     .map((s) => `${s}×${sizeBreakdown[s]}`).join(", ");
 
   const summaryItems = [
-    { label: "Style",     value: STYLE },
+    { label: "Style",     value: fitStyle },
     { label: "Color",     value: selectedColor },
     { label: "Placement", value: placementLabel },
     ...(rightSideName && customerName ? [{ label: "Side Name", value: customerName }] : []),
@@ -246,7 +302,7 @@ export default function CustomPolosPage() {
       <section className="bg-[#ececeb] py-12">
         <div className="mx-auto grid max-w-7xl grid-cols-1 gap-8 px-6 lg:grid-cols-[1.2fr_1.4fr_1.4fr_1fr]">
 
-          {/* Col 1 — Style + Placement */}
+          {/* Col 1 — Style + Fit + Placement */}
           <div>
             <Label>Style</Label>
             <div className="mb-8 rounded-2xl border border-[#e3b33d] bg-[#fff8e7] px-4 py-4 shadow-sm">
@@ -254,16 +310,54 @@ export default function CustomPolosPage() {
               <span className="mt-1 block text-xs text-[#d39a14]">★ Selected</span>
             </div>
 
+            <Label>Fit</Label>
+            <div className="mb-3 grid gap-2">
+              {FITS.map((fit) => (
+                <button
+                  key={fit.id}
+                  type="button"
+                  onClick={() => setSelectedFit(fit.id)}
+                  aria-pressed={selectedFit === fit.id}
+                  className={`rounded-2xl border px-4 py-3 text-left text-sm font-semibold transition ${
+                    selectedFit === fit.id
+                      ? "border-[#e3b33d] bg-[#fff8e7]"
+                      : "border-black/10 bg-white hover:border-[#d9d9d9]"
+                  }`}
+                >
+                  {fit.label}
+                  {selectedFit === fit.id && (
+                    <span className="ml-2 text-xs text-[#d39a14]">★ Selected</span>
+                  )}
+                </button>
+              ))}
+            </div>
+
+            {/* Said plainly rather than implying the shown colour is the only
+                one, which is what a single mockup would otherwise suggest. */}
+            {currentFit.note && (
+              <p className="mb-8 text-xs leading-relaxed text-gray-500">{currentFit.note}</p>
+            )}
           </div>
 
           {/* Col 2 — Preview + Color (in modal) */}
           <div>
             <ProductPreview
-              src={currentColor.front}
-              alt={`${STYLE} in ${selectedColor}`}
+              src={previewImage}
+              alt={
+                currentFit.fallbackImage
+                  ? `${fitStyle}, sample colourway`
+                  : `${fitStyle} in ${selectedColor}`
+              }
               fallbackHex={currentColor.hex}
               fallbackEmoji="👔"
-              label={`${STYLE} · ${selectedColor}`}
+              // Where the cut has no per-colour photograph, the caption must
+              // not assert the selected colour: "· Black" under a pink shirt
+              // reads as a bug, not as a stand-in.
+              label={
+                currentFit.fallbackImage
+                  ? `${fitStyle} · ${selectedColor} (shown in a sample colourway)`
+                  : `${fitStyle} · ${selectedColor}`
+              }
               colorPickerSlot={
                 <ColorPicker
                   colors={colors.map((c) => ({ name: c.name, hex: c.hex, image: c.front }))}

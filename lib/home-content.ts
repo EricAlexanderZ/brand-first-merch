@@ -26,6 +26,19 @@ export const categories: Category[] = [
     href: "/products/custom-sweaters",
     image: "/images/home/Home Content/YELLOW_CREWNECK.svg"
   },
+  {
+    // Not a separate product page: the women's cut is a fit option on the polo
+    // configurator, so this deep-links to it with that fit preselected. One
+    // price table, and a mixed-team order stays in a single checkout.
+    name: "Women's Polos",
+    href: "/products/custom-polos?fit=womens",
+    image: "/images/products/polo-womens.webp"
+  },
+  {
+    name: "Shirt Printing",
+    href: "/products/shirt-printing",
+    image: "/images/products/shirt-printing-front.webp"
+  },
 ];
 
 export const bestSellers = [
