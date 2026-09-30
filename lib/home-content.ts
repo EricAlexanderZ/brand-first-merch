@@ -14,7 +14,7 @@ export const categories: Category[] = [
   {
     name: "Custom Polos",
     href: "/products/custom-polos",
-    image: "/images/home/LeftChestLogo.png"
+    image: "/images/products/polo-mens-bf.webp"
   },
   {
     name: "Custom Hoodies",
@@ -43,7 +43,7 @@ export const bestSellers = [
 },
   {
     title: "Stitched Polos",
-    image: "/images/home/LeftChestLogo.png",
+    image: "/images/products/polo-mens-bf.webp",
     href: "/products/custom-polos",
     imageScale: "scale-[1]",
   },

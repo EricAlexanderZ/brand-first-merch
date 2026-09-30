@@ -7,7 +7,6 @@ import { ProcessSteps } from "@/components/process-steps";
 import ScrollToCategories from "@/components/home/scroll-to-categories";
 import HeroLogo from "@/components/home/hero-logo";
 import { bestSellers, categories, logos } from "@/lib/home-content";
-import { ReviewsCarousel } from "@/components/reviews-carousel";
 
 export default function Home() {
   return (
@@ -132,10 +131,6 @@ export default function Home() {
       </section>
 
       <ProcessSteps />
-
-      {/* People first, then brands: a stranger trusts a named customer
-          more than a logo they do not recognise. */}
-      <ReviewsCarousel />
 
       <section className="bg-gray-50 py-16">
         <div className="mx-auto max-w-7xl overflow-hidden px-6">

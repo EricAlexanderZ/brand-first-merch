@@ -39,3 +39,7 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Design-source originals. Kept beside the project for re-export, never shipped:
+# public/ is served verbatim. Processed copies live in public/images/products.
+_source-originals
