@@ -16,16 +16,27 @@ export const categories: Category[] = [
     href: "/products/custom-polos",
     image: "/images/products/polo-mens-bf.webp"
   },
-  {
-    name: "Custom Hoodies",
-    href: "/products/custom-hoodies",
-    image: "/images/home/Home Content/YELLOW_HOODIE (1).svg"
-  },
-  {
-    name: "Custom Sweaters",
-    href: "/products/custom-sweaters",
-    image: "/images/home/Home Content/YELLOW_CREWNECK.svg"
-  },
+  /*
+   * Hidden 2026-09-30, temporarily, at Eric's request.
+   *
+   * Both artworks still carry the El Hilo Co logo, and this list feeds the
+   * header and mobile navigation as well as the home grid, so leaving them in
+   * showed the old brand in three places. The product pages themselves are
+   * untouched and still serve at their URLs, so no link or search result
+   * breaks; they are only unlisted.
+   *
+   * Restore by uncommenting once the replacement mockups exist.
+   */
+  // {
+  //   name: "Custom Hoodies",
+  //   href: "/products/custom-hoodies",
+  //   image: "/images/products/<new hoodie mockup>"
+  // },
+  // {
+  //   name: "Custom Sweaters",
+  //   href: "/products/custom-sweaters",
+  //   image: "/images/products/<new sweater mockup>"
+  // },
   {
     // Not a separate product page: the women's cut is a fit option on the polo
     // configurator, so this deep-links to it with that fit preselected. One
@@ -71,12 +82,13 @@ export const bestSellers = [
     href: "/products/custom-polos",
     imageScale: "scale-[1]",
   },
-  {
-    title: "Stitched Hoodies",
-    image: "/images/home/Home Content/YELLOW_HOODIE (1).svg",
-    href: "/products/custom-hoodies",
-    imageScale: "scale-[1]",
-  },
+  // Hidden with the hoodie category above, same reason, same fix.
+  // {
+  //   title: "Stitched Hoodies",
+  //   image: "/images/products/<new hoodie mockup>",
+  //   href: "/products/custom-hoodies",
+  //   imageScale: "scale-[1]",
+  // },
 ];
 
 export const processSteps = [
