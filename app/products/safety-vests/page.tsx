@@ -15,64 +15,53 @@ import {
   sizeBreakdownIsValid,
   type QuantityOption,
 } from "@/components/products/product-ui";
-import {
-  getUnitPrice,
-  shirtPrintingType,
-  SHIRT_FABRICS,
-  SHIRT_SLEEVES,
-  type ShirtFabric,
-  type ShirtSleeve,
-} from "@/lib/products/pricing";
+import { getUnitPrice } from "@/lib/products/pricing";
 
 /*
- * DTF shirt printing.
+ * Hi-vis safety vests, flat $18 each.
  *
- * Deliberately shaped differently from the embroidery pages. Two things drive
- * the price here, fabric and sleeve length, and nothing else: the quoted rate
- * already covers a front AND a back print, so there is no placement upcharge
- * to add and no placement selector to offer. Presenting one would imply a
- * choice that does not change the price.
- *
- * There is no colour picker either, because there is no colour photography for
- * printed blanks yet. Rather than invent swatches, the page says colour is
- * settled on the proof. Add real garment photos and a picker can follow.
+ * No tier table: the price does not move with quantity, so the presets below
+ * all resolve to the same per-piece rate and there is nothing to discount.
+ * If tiers arrive later they go in lib/products/pricing.ts and this page picks
+ * them up without edits, because the presets are computed from getUnitPrice
+ * rather than written out.
  */
 
-const SIZES = ["XS", "S", "M", "L", "XL", "2XL", "3XL"];
+const PRODUCT_TYPE = "Safety Vests";
+const STYLE = "ANSI hi-vis mesh safety vest";
 
-const QUANTITY_PRESETS = [1, 11, 30, 50, 101];
+const SIZES = ["S", "M", "L", "XL", "2XL", "3XL"];
+const QUANTITY_PRESETS = [1, 5, 10, 25, 50];
 
-const FABRIC_BLURB: Record<ShirtFabric, string> = {
-  "Dri-Fit": "Moisture-wicking polyester. Holds colour, dries fast, best for teams, outdoor work and anything active.",
-  Cotton: "Gildan cotton. Softer hand, heavier feel, the everyday tee. Two dollars less per piece at every quantity.",
-};
+const PLACEMENTS = [
+  { id: "Left Chest Logo", label: "Left chest logo", note: "Small mark on the front panel" },
+  { id: "Back Logo", label: "Back logo", note: "Large mark across the back" },
+];
 
-export default function ShirtPrintingPage() {
+const VIEWS = [
+  { id: "front", src: "/images/products/safety-vest-front.webp", label: "Front" },
+  { id: "back", src: "/images/products/safety-vest-back.webp", label: "Back" },
+];
+
+export default function SafetyVestsPage() {
   const router = useRouter();
 
-  const [fabric, setFabric] = useState<ShirtFabric>("Dri-Fit");
-  const [sleeve, setSleeve] = useState<ShirtSleeve>("Short Sleeve");
-  const [view, setView] = useState<"front" | "back">("front");
-
-  const [selectedQuantity, setSelectedQuantity] = useState("11 Shirts");
+  const [selectedQuantity, setSelectedQuantity] = useState("10 Vests");
   const [isCustomQuantity, setIsCustomQuantity] = useState(false);
   const [customQuantity, setCustomQuantity] = useState("");
   const [customQuantityError, setCustomQuantityError] = useState("");
   const [sizeBreakdown, setSizeBreakdown] = useState<Record<string, number>>({});
+  const [placements, setPlacements] = useState<string[]>(["Back Logo"]);
+  const [view, setView] = useState(1);
 
-  const productType = shirtPrintingType(fabric, sleeve);
-
-  // Preset prices are computed from the tier table, never written out: a
-  // hardcoded label goes stale the moment a price changes and then advertises
-  // a number the cart will not honour.
   const quantities: QuantityOption[] = useMemo(
     () =>
       QUANTITY_PRESETS.map((qty) => ({
-        label: `${qty} Shirt${qty === 1 ? "" : "s"}`,
+        label: `${qty} Vest${qty === 1 ? "" : "s"}`,
         qty,
-        price: qty * getUnitPrice(productType, qty),
+        price: qty * getUnitPrice(PRODUCT_TYPE, qty),
       })),
-    [productType]
+    []
   );
 
   const parsedCustomQty = Number.parseInt(customQuantity, 10);
@@ -84,12 +73,19 @@ export default function ShirtPrintingPage() {
       : 0
     : quantities.find((q) => q.label === selectedQuantity)?.qty ?? 0;
 
-  const perUnit = qty > 0 ? getUnitPrice(productType, qty) : 0;
+  const perUnit = qty > 0 ? getUnitPrice(PRODUCT_TYPE, qty) : 0;
   const total = perUnit * qty;
+
   const sizesTotal = sizeBreakdownTotal(SIZES, sizeBreakdown);
   // A breakdown that contradicts the order is worse than none: the shop would
   // receive two different quantities with no way to tell which was meant.
-  const isValid = qty > 0 && sizeBreakdownIsValid(sizesTotal, qty);
+  const isValid = qty > 0 && placements.length > 0 && sizeBreakdownIsValid(sizesTotal, qty);
+
+  function togglePlacement(id: string) {
+    setPlacements((prev) =>
+      prev.includes(id) ? prev.filter((p) => p !== id) : [...prev, id]
+    );
+  }
 
   function handleCustomChange(e: ChangeEvent<HTMLInputElement>) {
     const value = e.target.value;
@@ -109,21 +105,14 @@ export default function ShirtPrintingPage() {
     .map((s) => `${s}×${sizeBreakdown[s]}`)
     .join(", ");
 
-  const image =
-    view === "front"
-      ? "/images/products/shirt-printing-front.webp"
-      : "/images/products/shirt-printing-back.webp";
-
   function goToUpload() {
-    sessionStorage.setItem("cartItemImage", image);
+    sessionStorage.setItem("cartItemImage", VIEWS[view].src);
     const params = new URLSearchParams({
-      productType,
-      style: `${fabric} ${sleeve}`,
-      color: "Confirmed on proof",
+      productType: PRODUCT_TYPE,
+      style: STYLE,
+      color: "Hi-vis yellow",
       quantity: isCustomQuantity && customQtyIsValid ? String(parsedCustomQty) : selectedQuantity,
-      // Front and back are included in the rate, so this records what is being
-      // made rather than offering a choice that changes nothing.
-      placement: "Front and Back Print",
+      placement: placements.join(", "),
       ...(sizeSummary ? { sizes: sizeSummary } : {}),
       total: String(total),
       perUnit: String(perUnit),
@@ -135,9 +124,9 @@ export default function ShirtPrintingPage() {
   }
 
   const summaryItems = [
-    { label: "Fabric", value: fabric },
-    { label: "Sleeve", value: sleeve },
-    { label: "Printing", value: "Front and back included" },
+    { label: "Style", value: STYLE },
+    { label: "Colour", value: "Hi-vis yellow" },
+    { label: "Placement", value: placements.join(", ") || "None selected" },
     { label: "Sizes", value: sizeSummary || "Not specified" },
   ];
 
@@ -147,66 +136,50 @@ export default function ShirtPrintingPage() {
       <SiteHeader />
 
       <section className="mx-auto max-w-7xl px-6 pt-14 pb-6 text-center">
-        <h1 className="text-4xl font-extrabold tracking-tight sm:text-5xl">Shirt Printing</h1>
+        <h1 className="text-4xl font-extrabold tracking-tight sm:text-5xl">Safety Vests</h1>
         <p className="mx-auto mt-4 max-w-2xl text-lg leading-relaxed text-gray-600">
-          DTF printing on dri-fit and cotton tees. Full colour, no setup fees, and
-          every price below already includes a front <em>and</em> a back print.
+          Hi-vis mesh vests with your logo, $18 each at any quantity. Job site
+          ready, and the crew is recognisable from across the lot.
         </p>
       </section>
 
       <section className="mx-auto grid max-w-7xl gap-10 px-6 pb-16 lg:grid-cols-3">
-        {/* Col 1 — Fabric + sleeve */}
+        {/* Col 1 — Placement + sizes */}
         <div>
-          <Label>Fabric</Label>
-          <div className="mb-2 grid gap-2">
-            {SHIRT_FABRICS.map((f) => (
+          <Label>Logo placement</Label>
+          <div className="grid gap-2">
+            {PLACEMENTS.map((p) => (
               <button
-                key={f}
+                key={p.id}
                 type="button"
-                onClick={() => setFabric(f)}
-                aria-pressed={fabric === f}
+                onClick={() => togglePlacement(p.id)}
+                aria-pressed={placements.includes(p.id)}
                 className={`rounded-2xl border px-4 py-3 text-left transition ${
-                  fabric === f
+                  placements.includes(p.id)
                     ? "border-[#e3b33d] bg-[#fff8e7]"
                     : "border-black/10 bg-white hover:border-[#d9d9d9]"
                 }`}
               >
-                <span className="text-sm font-semibold">{f}</span>
-                {fabric === f && <span className="ml-2 text-xs text-[#d39a14]">★ Selected</span>}
-                <span className="mt-1 block text-xs leading-relaxed text-gray-500">
-                  {FABRIC_BLURB[f]}
-                </span>
+                <span className="text-sm font-semibold">{p.label}</span>
+                {placements.includes(p.id) && (
+                  <span className="ml-2 text-xs text-[#d39a14]">★ Selected</span>
+                )}
+                <span className="mt-1 block text-xs text-gray-500">{p.note}</span>
               </button>
             ))}
           </div>
-
-          <div className="mt-8">
-            <Label>Sleeve</Label>
-            <div className="grid grid-cols-2 gap-2">
-              {SHIRT_SLEEVES.map((sl) => (
-                <button
-                  key={sl}
-                  type="button"
-                  onClick={() => setSleeve(sl)}
-                  aria-pressed={sleeve === sl}
-                  className={`rounded-2xl border px-4 py-3 text-sm font-semibold transition ${
-                    sleeve === sl
-                      ? "border-[#e3b33d] bg-[#fff8e7]"
-                      : "border-black/10 bg-white hover:border-[#d9d9d9]"
-                  }`}
-                >
-                  {sl}
-                </button>
-              ))}
-            </div>
-          </div>
+          {placements.length === 0 && (
+            <p role="alert" className="mt-2 text-xs font-semibold text-red-600">
+              Pick at least one placement.
+            </p>
+          )}
 
           <div className="mt-8">
             <SizeBreakdown
               sizes={SIZES}
               breakdown={sizeBreakdown}
               orderQty={qty}
-              unit="shirt"
+              unit="vest"
               onChange={setSizeBreakdown}
             />
           </div>
@@ -217,8 +190,8 @@ export default function ShirtPrintingPage() {
           <div className="rounded-[1.75rem] border border-black/10 bg-[#f6f7f9] p-6">
             <div className="relative mx-auto aspect-square w-full max-w-sm">
               <Image
-                src={image}
-                alt={`DTF printed shirt, ${view}`}
+                src={VIEWS[view].src}
+                alt={`Hi-vis safety vest, ${VIEWS[view].label.toLowerCase()}`}
                 fill
                 sizes="(min-width: 1024px) 380px, 90vw"
                 className="object-contain"
@@ -226,40 +199,26 @@ export default function ShirtPrintingPage() {
               />
             </div>
             <div className="mt-4 grid grid-cols-2 gap-2">
-              {(["front", "back"] as const).map((v) => (
+              {VIEWS.map((v, i) => (
                 <button
-                  key={v}
+                  key={v.id}
                   type="button"
-                  onClick={() => setView(v)}
-                  aria-pressed={view === v}
+                  onClick={() => setView(i)}
+                  aria-pressed={view === i}
                   className={`rounded-xl border px-4 py-2 text-xs font-bold uppercase tracking-wide transition ${
-                    view === v
+                    view === i
                       ? "border-[#13294b] bg-white text-[#13294b]"
                       : "border-transparent bg-white/60 text-gray-500 hover:bg-white"
                   }`}
                 >
-                  {v}
+                  {v.label}
                 </button>
               ))}
             </div>
             <p className="mt-4 text-center text-xs leading-relaxed text-gray-500">
-              Real customer work. Garment colour is settled on your proof before
-              anything is printed.
+              Shown with a customer&apos;s logo. Yours goes in the same positions.
             </p>
           </div>
-
-          <ul className="mt-6 grid gap-3">
-            {[
-              ["Front and back included", "Both prints are in the price. No per-placement upcharge."],
-              ["Full colour, no setup fee", "DTF handles photographic and many-colour artwork that embroidery cannot."],
-              ["No minimum order", "One shirt or a thousand. The per-piece price falls as quantity rises."],
-            ].map(([title, body]) => (
-              <li key={title} className="rounded-2xl border border-black/10 bg-white px-4 py-3">
-                <p className="text-sm font-bold">{title}</p>
-                <p className="mt-1 text-xs leading-relaxed text-gray-500">{body}</p>
-              </li>
-            ))}
-          </ul>
         </div>
 
         {/* Col 3 — Quantity + price */}
@@ -287,7 +246,7 @@ export default function ShirtPrintingPage() {
             <PriceSummary
               total={total}
               perUnit={perUnit}
-              unit="shirt"
+              unit="vest"
               isValid={isValid}
               onSubmit={goToUpload}
               summaryItems={summaryItems}

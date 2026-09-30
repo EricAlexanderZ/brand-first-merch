@@ -53,6 +53,15 @@ const TIERS: Record<string, PricingTier[]> = {
     { minQty: 11,  unitPrice: 18 },
     { minQty: 1,   unitPrice: 20 },
   ],
+  /*
+   * Safety vests. A flat $18 at every quantity, per Eric 2026-09-30: no tier
+   * table was given, so none is invented. A single minQty:1 entry makes that
+   * explicit rather than leaving the reader to wonder where the breaks are.
+   */
+  "Safety Vests": [
+    { minQty: 1, unitPrice: 18 },
+  ],
+
   "Shirt Printing (Dri-Fit, Long Sleeve)": [
     { minQty: 101, unitPrice: 15 },
     { minQty: 50,  unitPrice: 18 },
@@ -109,6 +118,7 @@ export const PRODUCT_MOQ: Record<string, number> = {
   "Custom Polos":    1,
   "Custom Hoodies":  1,
   "Custom Sweaters": 1,
+  "Safety Vests":    1,
   // Shirt printing keys are composed; every combination accepts a single piece.
   "Shirt Printing (Dri-Fit, Short Sleeve)": 1,
   "Shirt Printing (Dri-Fit, Long Sleeve)":  1,

@@ -15,6 +15,9 @@ import {
   ProductPreview,
   QuantitySelector,
   PriceSummary,
+  SizeBreakdown,
+  sizeBreakdownTotal,
+  sizeBreakdownIsValid,
   type QuantityOption,
 } from "@/components/products/product-ui";
 import { getUnitPrice } from "@/lib/products/pricing";
@@ -152,7 +155,11 @@ export default function CustomSweatersPage() {
   const total           = baseTotal + logoUpcharge;
   const perUnit         = activeQty > 0 ? total / activeQty : 0;
   const perUnitUpcharge = activeQty > 0 ? logoUpcharge / activeQty : 0;
-  const isOrderValid    = !isCustomQuantity || customQtyIsValid;
+  const sizesTotal   = sizeBreakdownTotal(SIZES, sizeBreakdown);
+  // A breakdown that contradicts the order is worse than none: the shop
+  // would receive two different quantities with no way to tell which was meant.
+  const sizesOk      = sizeBreakdownIsValid(sizesTotal, activeQty);
+  const isOrderValid = (!isCustomQuantity || customQtyIsValid) && sizesOk;
 
   function togglePlacement(type: "chest" | "back") {
     if (type === "chest") {
@@ -388,29 +395,13 @@ export default function CustomSweatersPage() {
               </div>
             </div>
             <div className="mt-8">
-              <Label>Size Breakdown</Label>
-              <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 lg:grid-cols-7">
-                {SIZES.map((size) => (
-                  <div key={size} className="flex flex-col items-center gap-1">
-                    <span className="text-xs font-bold text-gray-600">{size}</span>
-                    <input
-                      type="number"
-                      min={0}
-                      value={sizeBreakdown[size] || ""}
-                      placeholder="0"
-                      onChange={(e) => setSizeBreakdown((prev) => ({
-                        ...prev,
-                        [size]: Math.max(0, Number(e.target.value) || 0),
-                      }))}
-                      className="w-full rounded-xl border border-black/10 bg-white px-1 py-2 text-center text-sm outline-none focus:border-[#e3b33d]"
-                    />
-                  </div>
-                ))}
-              </div>
-              {(() => {
-                const t = SIZES.reduce((s, sz) => s + (sizeBreakdown[sz] || 0), 0);
-                return t > 0 ? <p className="mt-2 text-xs text-gray-500">Total: {t} piece{t !== 1 ? "s" : ""} across all sizes</p> : null;
-              })()}
+              <SizeBreakdown
+                sizes={SIZES}
+                breakdown={sizeBreakdown}
+                orderQty={activeQty}
+                unit="sweater"
+                onChange={setSizeBreakdown}
+              />
             </div>
           </div>
 

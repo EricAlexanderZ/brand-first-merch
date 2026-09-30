@@ -41,7 +41,7 @@ export const categories: Category[] = [
   },
   {
     name: "Safety Vests",
-    href: "/products/new-hire",
+    href: "/products/safety-vests",
     image: "/images/products/safety-vest-back.webp"
   },
 ];

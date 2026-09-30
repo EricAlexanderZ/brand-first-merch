@@ -446,3 +446,92 @@ export function PriceSummary({
     </div>
   );
 }
+
+// ─── Size Breakdown ───────────────────────────────────────────
+
+/** Sum of a size breakdown, ignoring blanks and negatives. */
+export function sizeBreakdownTotal(
+  sizes: string[],
+  breakdown: Record<string, number>
+): number {
+  return sizes.reduce((sum, s) => sum + (breakdown[s] || 0), 0);
+}
+
+/**
+ * Whether a breakdown may be submitted alongside `orderQty`.
+ *
+ * Blank is allowed: sizes are optional and can be sent with the artwork. What
+ * is not allowed is a breakdown that contradicts the order, which is what this
+ * exists to stop. Before it, a customer could order one polo and specify five
+ * smalls, and the shop received both numbers with no way to tell which was
+ * meant.
+ */
+export function sizeBreakdownIsValid(total: number, orderQty: number): boolean {
+  return total === 0 || total === orderQty;
+}
+
+export function SizeBreakdown({
+  sizes,
+  breakdown,
+  orderQty,
+  onChange,
+  unit = "piece",
+}: {
+  sizes: string[];
+  breakdown: Record<string, number>;
+  /** The quantity actually being ordered, which the breakdown must match. */
+  orderQty: number;
+  onChange: (next: Record<string, number>) => void;
+  unit?: string;
+}) {
+  const total = sizeBreakdownTotal(sizes, breakdown);
+  const ok = sizeBreakdownIsValid(total, orderQty);
+
+  return (
+    <div>
+      <Label>Size Breakdown</Label>
+      <p className="mb-2 text-xs text-gray-500">
+        Optional. If you fill it in, it has to add up to your order of {orderQty}{" "}
+        {unit}
+        {orderQty === 1 ? "" : "s"}.
+      </p>
+      <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 lg:grid-cols-7">
+        {sizes.map((size) => (
+          <div key={size} className="flex flex-col items-center gap-1">
+            <span className="text-xs font-bold text-gray-600">{size}</span>
+            <input
+              type="number"
+              min={0}
+              inputMode="numeric"
+              aria-label={`Quantity of size ${size}`}
+              value={breakdown[size] || ""}
+              placeholder="0"
+              onChange={(e) =>
+                onChange({
+                  ...breakdown,
+                  [size]: Math.max(0, Number(e.target.value) || 0),
+                })
+              }
+              className={`w-full rounded-xl border bg-white px-1 py-2 text-center text-sm outline-none ${
+                total > 0 && !ok
+                  ? "border-red-400 focus:border-red-500"
+                  : "border-black/10 focus:border-[#e3b33d]"
+              }`}
+            />
+          </div>
+        ))}
+      </div>
+
+      {total > 0 && (
+        <p
+          role={ok ? undefined : "alert"}
+          className={`mt-2 text-xs ${ok ? "text-gray-500" : "font-semibold text-red-600"}`}
+        >
+          {ok
+            ? `Total: ${total} ${unit}${total === 1 ? "" : "s"}, matches your order.`
+            : `Total: ${total} of ${orderQty}. Adjust the sizes or the quantity so they match.`}
+        </p>
+      )}
+    </div>
+  );
+}
