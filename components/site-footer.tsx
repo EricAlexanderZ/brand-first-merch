@@ -17,9 +17,10 @@ export function SiteFooter() {
           <div>
             <p className="text-sm font-semibold text-white/60">Company</p>
             <div className="mt-4 space-y-3 text-sm">
-              <Link prefetch={false} href="/about" className="block hover:text-[#ffd84d]">
+              {/* About is temporarily hidden; see app/about/page.tsx. */}
+              {/* <Link prefetch={false} href="/about" className="block hover:text-[#ffd84d]">
                 About
-              </Link>
+              </Link> */}
               {/* Sitewide entry point to the local guides. The footer matters
                   here because it is on every page, which is how a crawler finds
                   the city posts from anywhere on the site. */}

@@ -1,7 +1,23 @@
+import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
 import { SiteHeader, TopBanner } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
+
+/*
+ * Hidden 2026-09-30, temporarily, at Eric's request.
+ *
+ * Unlinked from the footer and pulled from the sitemap, and noindexed here so
+ * the copy stops appearing in search while it is out of use. The route is
+ * deliberately left serving: removing it would 404 anyone arriving from an old
+ * link or a search result that has not yet dropped out.
+ *
+ * To restore: delete this metadata block and uncomment the footer link and the
+ * sitemap entry.
+ */
+export const metadata: Metadata = {
+  robots: { index: false, follow: false },
+};
 
 export default function AboutPage() {
   return (

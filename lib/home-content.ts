@@ -70,12 +70,14 @@ export const bestSellers = [
     href: "/products/custom-hats",
     imageScale: "scale-[1]",
   },
- {
-  title: "3D Puff Hats",
-  image: "/images/home/Home Content/3D_Puff_ELHILOCO.svg",
-  href: "/products/custom-hats",
-  imageScale: "scale-[1]",
-},
+  // Hidden 2026-09-30: the artwork still carries the El Hilo Co logo, and this
+  // was the last of it on the home page. Restore with a new mockup.
+  // {
+  //   title: "3D Puff Hats",
+  //   image: "/images/products/<new 3d puff mockup>",
+  //   href: "/products/custom-hats",
+  //   imageScale: "scale-[1]",
+  // },
   {
     title: "Stitched Polos",
     image: "/images/products/polo-mens-bf.webp",
