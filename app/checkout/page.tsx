@@ -1,6 +1,6 @@
 ﻿"use client";
 
-import { useMemo, useState, useEffect, useRef } from "react";
+import { useMemo, useState, useEffect, useRef, type HTMLAttributes } from "react";
 import { TopBanner, SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
 import CheckoutStep from "@/components/checkout/checkout-step";
@@ -8,17 +8,15 @@ import CheckoutSummary from "@/components/checkout/checkout-summary";
 import AddressSuggestionModal from "@/components/checkout/address-suggestion-modal";
 import StripePaymentForm, { type StripeFormHandle } from "@/components/checkout/stripe-payment-form";
 import { useCart } from "@/components/cart/cart-provider";
-import {
-  LOCAL_DELIVERY_CITY_LIST,
-  isLocalDeliveryEligible,
-  localDeliveryMethod,
-} from "@/lib/local-delivery";
+import { LOCAL_DELIVERY_CITY_LIST } from "@/lib/local-delivery";
 import {
   DEFAULT_SHIPPING_FORM,
+  US_STATES,
   getShippingLabel,
   hasShippingErrors,
   validateShippingForm,
 } from "@/lib/checkout";
+import { PENDING_ORDER_KEY, type CheckoutOrderBody, type PendingOrder } from "@/lib/pending-order";
 import type {
   DeliveryMethod,
   ShippingFormData,
@@ -26,8 +24,61 @@ import type {
   SuggestedAddress,
 } from "@/types/checkout";
 
+const INPUT = "w-full rounded-xl border border-black/10 bg-white px-4 py-3 outline-none focus:border-[#e5b43d]";
+
+/**
+ * One labelled checkout input.
+ *
+ * Every field carries an id/htmlFor pair and an autoComplete token. Without
+ * them phones could not autofill, so customers typed their name, email and
+ * address out by hand on a small keyboard.
+ */
+function Field({
+  name,
+  label,
+  value,
+  error,
+  onChange,
+  autoComplete,
+  type = "text",
+  inputMode,
+  optional = false,
+}: {
+  name: keyof ShippingFormData;
+  label: string;
+  value: string;
+  error?: string;
+  onChange: (value: string) => void;
+  autoComplete: string;
+  type?: string;
+  inputMode?: HTMLAttributes<HTMLInputElement>["inputMode"];
+  optional?: boolean;
+}) {
+  const id = `checkout-${name}`;
+  return (
+    <div>
+      <label htmlFor={id} className="mb-2 block text-sm font-semibold">
+        {label}
+        {optional && <span className="font-normal text-gray-400"> (optional)</span>}
+      </label>
+      <input
+        id={id}
+        name={name}
+        type={type}
+        inputMode={inputMode}
+        autoComplete={autoComplete}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        aria-invalid={!!error}
+        className={INPUT}
+      />
+      {error ? <p className="mt-2 text-sm text-red-500">{error}</p> : null}
+    </div>
+  );
+}
+
 export default function CheckoutPage() {
-  const { items, subtotal, clearCart } = useCart();
+  const { items, subtotal } = useCart();
 
   const [openStep, setOpenStep] = useState(1);
 
@@ -40,7 +91,6 @@ export default function CheckoutPage() {
 
   const [shippingComplete, setShippingComplete] = useState(false);
   const [deliveryComplete, setDeliveryComplete] = useState(false);
-  const [paymentComplete, setPaymentComplete] = useState(false);
 
   const [deliveryMethods, setDeliveryMethods] = useState<DeliveryMethod[]>([]);
   const [selectedDelivery, setSelectedDelivery] =
@@ -121,7 +171,9 @@ export default function CheckoutPage() {
         state: shippingForm.state,
         zip: shippingForm.zip,
         country: "US",
-        totalWeightOz: 16,
+        // The server works out weight, local delivery and the hat offer from
+        // the cart, the same way the payment route will when it charges.
+        items: items.map((i) => ({ productType: i.productType, quantity: i.quantity })),
       }),
     });
 
@@ -139,18 +191,17 @@ export default function CheckoutPage() {
       setIsLoadingRates(true);
       setShippingError("");
 
-      const rates = await fetchLiveShippingRates();
+      // Already includes free local delivery and the 25+ hat offer where they
+      // apply; see lib/delivery.ts.
+      const methods = await fetchLiveShippingRates();
+      setDeliveryMethods(methods);
 
-      // Free local delivery goes first, ahead of every carrier rate, because it
-      // is both the cheapest and the fastest for anyone it applies to. Offered
-      // only when the typed address actually qualifies: showing it to someone
-      // out of range would be a promise the business cannot keep.
-      const eligible = isLocalDeliveryEligible(shippingForm.city, shippingForm.state);
-      setDeliveryMethods(eligible ? [localDeliveryMethod(), ...rates] : rates);
-
-      // Preselect it. It is free, so there is no version of this where someone
-      // in range would rather pay a carrier.
-      if (eligible) setSelectedDelivery(localDeliveryMethod());
+      // Preselect the cheapest option, which is local delivery when it applies.
+      // Most customers want it, and an empty choice left "Continue" doing
+      // nothing with no explanation.
+      setSelectedDelivery(
+        methods.length ? methods.reduce((a, b) => (b.price < a.price ? b : a)) : null
+      );
       setShippingComplete(true);
       setShowAddressSuggestion(false);
       setOpenStep(2);
@@ -195,57 +246,80 @@ export default function CheckoutPage() {
       if (grandTotal <= 0) throw new Error("Invalid order total.");
       if (!stripeFormRef.current) throw new Error("Payment form not ready.");
 
+      await stripeFormRef.current.validate();
+
+      // The server prices the order itself; nothing here says what to charge.
       const intentRes = await fetch("/api/payments/intent", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ amount: grandTotal }),
-      });
-      const intentData = await intentRes.json();
-      if (!intentRes.ok) throw new Error(intentData?.error || "Payment failed.");
-
-      await stripeFormRef.current.confirmPayment(intentData.clientSecret);
-
-      const orderRes = await fetch("/api/orders", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          customerName:  `${shippingForm.firstName} ${shippingForm.lastName}`.trim(),
-          customerEmail: shippingForm.email,
-          customerPhone: shippingForm.phone,
-          shippingAddress: {
+          items,
+          address: {
+            name:  `${shippingForm.firstName} ${shippingForm.lastName}`.trim(),
             line1: shippingForm.address1,
             line2: shippingForm.address2 || undefined,
             city:  shippingForm.city,
             state: shippingForm.state,
             zip:   shippingForm.zip,
           },
-          shippingMethod: selectedDelivery?.label ?? "",
-          shippingPrice,
-          subtotal,
-          total: grandTotal,
-          items,
+          deliveryLabel: selectedDelivery?.label ?? "",
         }),
       });
+      const intentData = await intentRes.json();
+      if (!intentRes.ok) throw new Error(intentData?.error || "Payment failed.");
 
-      if (!orderRes.ok) {
-        console.error("[checkout] failed to save order — payment succeeded");
+      // The page and the server use the same pricing, so these agree. If they
+      // ever do not (a price changed mid-checkout), stop rather than charge an
+      // amount the customer was not shown.
+      if (Math.round(intentData.total * 100) !== Math.round(grandTotal * 100)) {
+        throw new Error(
+          `Your total has been updated to $${Number(intentData.total).toFixed(2)}. ` +
+          "Please refresh the page to review it before placing your order."
+        );
       }
 
-      clearCart();
-      window.location.href = "/order-confirmation";
+      /*
+       * The order is saved by the confirmation page, not here. Some payment
+       * methods (Klarna, some banks) leave the site to approve the payment and
+       * come back to /order-confirmation, so code after confirmPayment never
+       * runs for them, and those orders used to be paid for and never saved.
+       * Parking the order first gives both paths one place to finish.
+       */
+      const order: CheckoutOrderBody = {
+        customerName:  `${shippingForm.firstName} ${shippingForm.lastName}`.trim(),
+        customerEmail: shippingForm.email.trim(),
+        customerPhone: shippingForm.phone,
+        shippingAddress: {
+          line1: shippingForm.address1,
+          line2: shippingForm.address2 || undefined,
+          city:  shippingForm.city,
+          state: shippingForm.state,
+          zip:   shippingForm.zip,
+        },
+        shippingMethod: selectedDelivery?.label ?? "",
+        shippingPrice,
+        subtotal,
+        total: grandTotal,
+        items,
+      };
+      const pending: PendingOrder = {
+        endpoint: "/api/orders",
+        customerEmail: order.customerEmail,
+        body: order,
+      };
+      sessionStorage.setItem(PENDING_ORDER_KEY, JSON.stringify(pending));
+
+      const paymentIntentId = await stripeFormRef.current.confirmPayment(intentData.clientSecret);
+
+      window.location.href =
+        `/order-confirmation?payment_intent=${encodeURIComponent(paymentIntentId)}&redirect_status=succeeded`;
     } catch (error) {
+      sessionStorage.removeItem(PENDING_ORDER_KEY);
       setPaymentError(
         error instanceof Error ? error.message : "Payment failed."
       );
-    } finally {
       setIsPlacingOrder(false);
     }
-  }
-
-  function handlePaymentValidated() {
-    setPaymentComplete(true);
-    setPaymentError("");
-    setOpenStep(4);
   }
 
   function handleUseSuggestedAddress() {
@@ -259,6 +333,19 @@ export default function CheckoutPage() {
 
     void completeShippingStep();
   }
+
+  const field = (name: keyof ShippingFormData) => ({
+    name,
+    value: String(shippingForm[name]),
+    error: shippingErrors[name],
+    onChange: (v: string) => updateShippingField(name, v),
+  });
+
+  const shippingSummary = [
+    `${shippingForm.firstName} ${shippingForm.lastName}`.trim(),
+    shippingForm.address1,
+    `${shippingForm.city}, ${shippingForm.state} ${shippingForm.zip}`,
+  ].filter(Boolean).join(" · ");
 
   return (
     <main className="min-h-dvh bg-[#f6f6f4] text-black">
@@ -275,29 +362,18 @@ export default function CheckoutPage() {
             <CheckoutStep
               id="checkout-step-1"
               stepNumber={1}
-              title="Shipping Information"
+              title="Contact & Shipping"
+              summary={shippingSummary}
               isOpen={openStep === 1}
               isComplete={shippingComplete}
               onToggle={() => setOpenStep(openStep === 1 ? 0 : 1)}
             >
-              <div className="space-y-6">
-                <div>
-                  <label className="mb-2 block text-sm font-semibold">
-                    Email
-                  </label>
-                  <input
-                    value={shippingForm.email}
-                    onChange={(e) =>
-                      updateShippingField("email", e.target.value)
-                    }
-                    className="w-full rounded-xl border border-black/10 bg-[#eef2fb] px-4 py-3"
-                  />
-                  {shippingErrors.email ? (
-                    <p className="mt-2 text-sm text-red-500">
-                      {shippingErrors.email}
-                    </p>
-                  ) : null}
-                </div>
+              <form
+                className="space-y-6"
+                autoComplete="on"
+                onSubmit={(e) => { e.preventDefault(); void saveShipping(); }}
+              >
+                <Field {...field("email")} label="Email" type="email" inputMode="email" autoComplete="email" />
 
                 <label className="flex items-center gap-3 text-sm">
                   <input
@@ -310,163 +386,45 @@ export default function CheckoutPage() {
                   Subscribe to our deals and reorder emails
                 </label>
 
-                <div>
-                  <h2 className="text-3xl font-bold">Shipping Address</h2>
-                </div>
+                <h2 className="text-2xl font-bold">Shipping Address</h2>
 
                 <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                  <div>
-                    <label className="mb-2 block text-sm font-semibold">
-                      First Name
-                    </label>
-                    <input
-                      value={shippingForm.firstName}
-                      onChange={(e) =>
-                        updateShippingField("firstName", e.target.value)
-                      }
-                      className="w-full rounded-xl border border-black/10 bg-[#eef2fb] px-4 py-3"
-                    />
-                    {shippingErrors.firstName ? (
-                      <p className="mt-2 text-sm text-red-500">
-                        {shippingErrors.firstName}
-                      </p>
-                    ) : null}
-                  </div>
-
-                  <div>
-                    <label className="mb-2 block text-sm font-semibold">
-                      Last Name
-                    </label>
-                    <input
-                      value={shippingForm.lastName}
-                      onChange={(e) =>
-                        updateShippingField("lastName", e.target.value)
-                      }
-                      className="w-full rounded-xl border border-black/10 bg-[#eef2fb] px-4 py-3"
-                    />
-                    {shippingErrors.lastName ? (
-                      <p className="mt-2 text-sm text-red-500">
-                        {shippingErrors.lastName}
-                      </p>
-                    ) : null}
-                  </div>
-
-                  <div>
-                    <label className="mb-2 block text-sm font-semibold">
-                      Phone
-                    </label>
-                    <input
-                      value={shippingForm.phone}
-                      onChange={(e) =>
-                        updateShippingField("phone", e.target.value)
-                      }
-                      className="w-full rounded-xl border border-black/10 bg-[#eef2fb] px-4 py-3"
-                    />
-                    {shippingErrors.phone ? (
-                      <p className="mt-2 text-sm text-red-500">
-                        {shippingErrors.phone}
-                      </p>
-                    ) : null}
-                  </div>
-
-                  <div>
-                    <label className="mb-2 block text-sm font-semibold">
-                      Company
-                    </label>
-                    <input
-                      value={shippingForm.company}
-                      onChange={(e) =>
-                        updateShippingField("company", e.target.value)
-                      }
-                      placeholder="Company (optional)"
-                      className="w-full rounded-xl border border-black/10 px-4 py-3"
-                    />
-                  </div>
+                  <Field {...field("firstName")} label="First Name" autoComplete="shipping given-name" />
+                  <Field {...field("lastName")} label="Last Name" autoComplete="shipping family-name" />
+                  <Field {...field("phone")} label="Phone" type="tel" inputMode="tel" autoComplete="shipping tel" />
+                  <Field {...field("company")} label="Company" optional autoComplete="shipping organization" />
                 </div>
 
-                <div>
-                  <label className="mb-2 block text-sm font-semibold">
-                    Street Address
-                  </label>
-                  <input
-                    value={shippingForm.address1}
-                    onChange={(e) =>
-                      updateShippingField("address1", e.target.value)
-                    }
-                    className="w-full rounded-xl border border-black/10 bg-[#eef2fb] px-4 py-3"
-                  />
-                  {shippingErrors.address1 ? (
-                    <p className="mt-2 text-sm text-red-500">
-                      {shippingErrors.address1}
-                    </p>
-                  ) : null}
-                </div>
+                <Field {...field("address1")} label="Street Address" autoComplete="shipping address-line1" />
+                <Field {...field("address2")} label="Apt, suite, unit" optional autoComplete="shipping address-line2" />
 
-                <div>
-                  <input
-                    value={shippingForm.address2}
-                    onChange={(e) =>
-                      updateShippingField("address2", e.target.value)
-                    }
-                    placeholder="Street address 2 (optional)"
-                    className="w-full rounded-xl border border-black/10 px-4 py-3"
-                  />
-                </div>
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+                  <Field {...field("city")} label="City" autoComplete="shipping address-level2" />
 
-                <div>
-                  <label className="mb-2 block text-sm font-semibold">
-                    City
-                  </label>
-                  <input
-                    value={shippingForm.city}
-                    onChange={(e) =>
-                      updateShippingField("city", e.target.value)
-                    }
-                    className="w-full rounded-xl border border-black/10 bg-[#eef2fb] px-4 py-3"
-                  />
-                  {shippingErrors.city ? (
-                    <p className="mt-2 text-sm text-red-500">
-                      {shippingErrors.city}
-                    </p>
-                  ) : null}
-                </div>
-
-                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                   <div>
-                    <label className="mb-2 block text-sm font-semibold">
+                    <label htmlFor="checkout-state" className="mb-2 block text-sm font-semibold">
                       State
                     </label>
-                    <input
+                    <select
+                      id="checkout-state"
+                      name="state"
+                      autoComplete="shipping address-level1"
                       value={shippingForm.state}
-                      onChange={(e) =>
-                        updateShippingField("state", e.target.value)
-                      }
-                      className="w-full rounded-xl border border-black/10 px-4 py-3"
-                    />
+                      onChange={(e) => updateShippingField("state", e.target.value)}
+                      aria-invalid={!!shippingErrors.state}
+                      className={INPUT}
+                    >
+                      <option value="">Select…</option>
+                      {US_STATES.map(([code, name]) => (
+                        <option key={code} value={code}>{name}</option>
+                      ))}
+                    </select>
                     {shippingErrors.state ? (
-                      <p className="mt-2 text-sm text-red-500">
-                        {shippingErrors.state}
-                      </p>
+                      <p className="mt-2 text-sm text-red-500">{shippingErrors.state}</p>
                     ) : null}
                   </div>
 
-                  <div>
-                    <label className="mb-2 block text-sm font-semibold">
-                      Zip Code
-                    </label>
-                    <input
-                      value={shippingForm.zip}
-                      onChange={(e) =>
-                        updateShippingField("zip", e.target.value)
-                      }
-                      className="w-full rounded-xl border border-black/10 bg-[#eef2fb] px-4 py-3"
-                    />
-                    {shippingErrors.zip ? (
-                      <p className="mt-2 text-sm text-red-500">
-                        {shippingErrors.zip}
-                      </p>
-                    ) : null}
-                  </div>
+                  <Field {...field("zip")} label="Zip Code" inputMode="numeric" autoComplete="shipping postal-code" />
                 </div>
 
                 {shippingError ? (
@@ -474,22 +432,22 @@ export default function CheckoutPage() {
                 ) : null}
 
                 <button
-                  type="button"
-                  onClick={saveShipping}
+                  type="submit"
                   disabled={isLoadingRates}
-                  className="rounded-xl bg-[#e5b43d] px-5 py-3 text-sm font-semibold text-black disabled:cursor-not-allowed disabled:opacity-60"
+                  className="w-full rounded-xl bg-[#e5b43d] px-5 py-3 text-sm font-semibold text-black disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
                 >
                   {isLoadingRates
                     ? "Loading delivery options..."
-                    : "Save and Continue to Delivery"}
+                    : "Continue to Delivery"}
                 </button>
-              </div>
+              </form>
             </CheckoutStep>
 
             <CheckoutStep
               id="checkout-step-2"
               stepNumber={2}
               title="Delivery Method"
+              summary={getShippingLabel(selectedDelivery)}
               isOpen={openStep === 2}
               isComplete={deliveryComplete}
               isLocked={!shippingComplete}
@@ -512,6 +470,13 @@ export default function CheckoutPage() {
               </div>
 
               <div className="space-y-3">
+                {deliveryMethods.length === 0 && (
+                  <p className="text-sm text-gray-600">
+                    We couldn&apos;t find delivery options for this address. Check it in step 1,
+                    or contact us and we&apos;ll arrange delivery.
+                  </p>
+                )}
+
                 {deliveryMethods.map((method) => {
                   const selected = selectedDelivery?.id === method.id;
 
@@ -520,6 +485,7 @@ export default function CheckoutPage() {
                       key={method.id}
                       type="button"
                       onClick={() => setSelectedDelivery(method)}
+                      aria-pressed={selected}
                       className={`block w-full rounded-xl border px-4 py-4 text-left transition ${
                         selected
                           ? "border-[#e5b43d] bg-[#fff8e7]"
@@ -546,7 +512,8 @@ export default function CheckoutPage() {
                 <button
                   type="button"
                   onClick={saveDelivery}
-                  className="rounded-xl bg-[#e5b43d] px-5 py-3 text-sm font-semibold text-black"
+                  disabled={!selectedDelivery}
+                  className="w-full rounded-xl bg-[#e5b43d] px-5 py-3 text-sm font-semibold text-black disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
                 >
                   Continue to Payment
                 </button>
@@ -556,82 +523,67 @@ export default function CheckoutPage() {
             <CheckoutStep
               id="checkout-step-3"
               stepNumber={3}
-              title="Payment Information"
+              title="Payment & Place Order"
               isOpen={openStep === 3}
-              isComplete={paymentComplete}
               isLocked={!deliveryComplete}
               keepMounted
               onToggle={() =>
                 deliveryComplete && setOpenStep(openStep === 3 ? 0 : 3)
               }
             >
-              <StripePaymentForm
-                ref={stripeFormRef}
-                onValidated={handlePaymentValidated}
-                amount={grandTotal}
-              />
+              <StripePaymentForm ref={stripeFormRef} amount={grandTotal} />
               <p className="mt-3 text-sm text-gray-500">
                 Your payment is securely processed by Stripe. We do not store your card information.
               </p>
-            </CheckoutStep>
 
-            <CheckoutStep
-              id="checkout-step-4"
-              stepNumber={4}
-              title="Review Order"
-              isOpen={openStep === 4}
-              isLocked={!paymentComplete}
-              onToggle={() =>
-                paymentComplete && setOpenStep(openStep === 4 ? 0 : 4)
-              }
-            >
-              <div className="py-6 text-center">
-                <h3 className="text-3xl font-bold">
-                  We stitch after you approve — not before.
-                </h3>
-
-                <p className="mt-4 max-w-md mx-auto text-base text-gray-600">
-                  Once your order is placed, our team will prepare your design proof and send it to your email for review. You'll have the chance to request changes before anything goes into production.
-                </p>
-
-                <div className="mt-6 mx-auto max-w-sm space-y-3 rounded-[1.5rem] bg-[#f9f6ee] px-4 py-5 text-left text-sm sm:px-6">
-                  <div className="flex items-start gap-3">
-                    <span className="mt-0.5 text-[#e5b43d]">✓</span>
-                    <p className="text-gray-700">You'll receive a design proof by email. Approve it or request adjustments — we'll make it right.</p>
+              {/* What is being bought, right next to the button that buys it. */}
+              <div className="mt-6 rounded-[1.25rem] border border-black/10 p-4">
+                <p className="text-sm font-bold">Your order</p>
+                <div className="mt-3 space-y-2 text-sm">
+                  {items.map((item) => (
+                    <div key={item.cartItemId} className="flex justify-between gap-4">
+                      <span className="text-gray-700">
+                        {item.productType}
+                        {item.color ? ` · ${item.color}` : ""} × {item.quantity}
+                      </span>
+                      <span className="shrink-0 font-semibold">${item.price.toFixed(2)}</span>
+                    </div>
+                  ))}
+                  <div className="flex justify-between gap-4 text-gray-600">
+                    <span>{selectedDelivery?.label ?? "Shipping"}</span>
+                    <span className="shrink-0">{shippingPrice === 0 ? "Free" : `$${shippingPrice.toFixed(2)}`}</span>
                   </div>
-                  <div className="flex items-start gap-3">
-                    <span className="mt-0.5 text-[#e5b43d]">✓</span>
-                    <p className="text-gray-700">Your order moves into production only after you give the green light.</p>
-                  </div>
-                  <div className="flex items-start gap-3">
-                    <span className="mt-0.5 text-amber-500">⚠</span>
-                    <p className="text-gray-700">No response within 5 days? Your proof auto-approves and production begins — so your timeline stays on track.</p>
-                  </div>
-                  <div className="flex items-start gap-3">
-                    <span className="mt-0.5 text-[#e5b43d]">✓</span>
-                    <p className="text-gray-700">You may cancel at any time before approving your proof.</p>
+                  <div className="flex justify-between gap-4 border-t border-black/10 pt-2 text-base font-bold">
+                    <span>Total</span>
+                    <span>${grandTotal.toFixed(2)}</span>
                   </div>
                 </div>
-
-                <button
-                  type="button"
-                  onClick={handlePlaceOrder}
-                  disabled={isPlacingOrder}
-                  className="mt-8 rounded-xl bg-[#e5b43d] px-8 py-3 text-sm font-bold text-black transition hover:brightness-95 disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  {isPlacingOrder ? "Processing..." : "Place Order"}
-                </button>
-
-                {paymentError && (
-                  <p className="mt-4 text-sm text-red-500">{paymentError}</p>
-                )}
-
-                <p className="mt-4 text-xs text-gray-400">
-                  By clicking "Place Order", you agree to our{" "}
-                  <a href="/terms" className="underline hover:text-gray-600">Terms of Service</a>{" "}and{" "}
-                  <a href="/privacy" className="underline hover:text-gray-600">Privacy Policy</a>.
-                </p>
               </div>
+
+              <div className="mt-4 space-y-2 rounded-[1.25rem] bg-[#f9f6ee] px-4 py-4 text-sm text-gray-700">
+                <p><span className="text-[#e5b43d]">✓</span> We email you a proof. Nothing is made until you approve it.</p>
+                <p><span className="text-[#e5b43d]">✓</span> Request changes or cancel any time before approving.</p>
+                <p><span className="text-amber-500">⚠</span> No response within 5 days? Your proof auto-approves so your timeline stays on track.</p>
+              </div>
+
+              <button
+                type="button"
+                onClick={handlePlaceOrder}
+                disabled={isPlacingOrder}
+                className="mt-6 w-full rounded-xl bg-[#e5b43d] px-8 py-4 text-base font-bold text-black transition hover:brightness-95 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {isPlacingOrder ? "Processing..." : `Place Order · $${grandTotal.toFixed(2)}`}
+              </button>
+
+              {paymentError && (
+                <p className="mt-4 text-sm text-red-500">{paymentError}</p>
+              )}
+
+              <p className="mt-4 text-center text-xs text-gray-400">
+                By clicking &quot;Place Order&quot;, you agree to our{" "}
+                <a href="/terms" className="underline hover:text-gray-600">Terms of Service</a>{" "}and{" "}
+                <a href="/privacy" className="underline hover:text-gray-600">Privacy Policy</a>.
+              </p>
             </CheckoutStep>
           </div>
 

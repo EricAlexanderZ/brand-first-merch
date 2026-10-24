@@ -7,6 +7,8 @@ type CheckoutStepProps = {
   isComplete?: boolean;
   isLocked?: boolean;
   keepMounted?: boolean;
+  /** One line shown under the title once the step is done and closed. */
+  summary?: string;
   onToggle?: () => void;
   children?: React.ReactNode;
   id?: string;
@@ -19,6 +21,7 @@ export default function CheckoutStep({
   isComplete = false,
   isLocked = false,
   keepMounted = false,
+  summary,
   onToggle,
   children,
   id,
@@ -43,10 +46,19 @@ export default function CheckoutStep({
             {stepNumber}
           </div>
 
-          <span className="text-lg font-semibold text-black">{title}</span>
+          <span className="min-w-0">
+            <span className="block text-lg font-semibold text-black">{title}</span>
+            {summary && isComplete && !isOpen && (
+              <span className="block truncate text-sm text-gray-500">{summary}</span>
+            )}
+          </span>
         </div>
 
-        <span className="text-gray-400">{isOpen ? "⌃" : "⌄"}</span>
+        {isComplete && !isOpen ? (
+          <span className="shrink-0 text-sm font-semibold text-[#13294b] underline">Edit</span>
+        ) : (
+          <span className="text-gray-400">{isOpen ? "⌃" : "⌄"}</span>
+        )}
       </button>
 
       {keepMounted ? (

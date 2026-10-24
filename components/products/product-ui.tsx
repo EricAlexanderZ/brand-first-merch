@@ -106,14 +106,17 @@ export function ColorPicker({
         Color:{" "}
         <span className="font-bold text-black">{selectedColor}</span>
       </p>
-      <div className="grid grid-cols-5 gap-2 sm:grid-cols-6">
+      {/* Wraps rather than a fixed grid: inline in a narrow column, a fixed
+          six-across grid of 48px swatches overflowed and overlapped. */}
+      <div className="flex flex-wrap gap-2">
         {colors.map((color) => (
           <button
             key={color.name}
             type="button"
             onClick={() => onSelect(color.name)}
             title={color.name}
-            className={`h-10 w-10 rounded-full border-2 transition hover:scale-105 sm:h-12 sm:w-12 ${
+            aria-pressed={selectedColor === color.name}
+            className={`h-10 w-10 shrink-0 rounded-full border-2 transition hover:scale-105 ${
               selectedColor === color.name
                 ? "border-[#13294b] ring-2 ring-[#13294b]/20"
                 : "border-white shadow"
@@ -153,7 +156,10 @@ export function ProductPreview({
 
   useEffect(() => { setImgError(false); }, [src]);
 
-  const canExpand = !!backSrc || !!colorPickerSlot;
+  // The colour picker sits inline under the photo. It used to live only inside
+  // this modal, behind "Tap to pick a color", and customers did not find it.
+  // The modal now exists only for products with a back view to show.
+  const canExpand = !!backSrc;
 
   function openModal() {
     if (!canExpand) return;
@@ -176,7 +182,7 @@ export function ProductPreview({
         >
           {canExpand && (
             <p className="mb-2 text-center text-sm font-semibold text-[#13294b]">
-              {backSrc ? "Tap to view front & back · pick a color" : "Tap to pick a color"}
+              Tap to view front &amp; back
             </p>
           )}
           <div className="flex items-center justify-center">
@@ -204,6 +210,8 @@ export function ProductPreview({
         </button>
 
         <p className="mt-4 text-center text-sm font-semibold">{label}</p>
+
+        {colorPickerSlot && <div className="mt-4">{colorPickerSlot}</div>}
       </div>
 
       {/* Front / Back Modal */}
@@ -261,11 +269,6 @@ export function ProductPreview({
                 </div>
               </div>
 
-              {colorPickerSlot && (
-                <div className="mt-4">
-                  {colorPickerSlot}
-                </div>
-              )}
             </div>
 
             {/* Fixed confirm button */}
@@ -318,25 +321,44 @@ export function QuantitySelector({
   onCustomChange: (e: ChangeEvent<HTMLInputElement>) => void;
   onCustomFocus: () => void;
 }) {
+  // The single-piece rate is the yardstick for "save X%". Measured on the base
+  // price only, so an upcharge the customer chose does not inflate the saving.
+  const baseEach = quantities.length ? quantities[0].price / quantities[0].qty : 0;
+
   return (
     <div className="space-y-3">
-      {quantities.map((q) => (
-        <button
-          key={q.label}
-          type="button"
-          onClick={() => onPresetSelect(q.label)}
-          className={`flex w-full items-center justify-between rounded-2xl border px-4 py-4 text-left text-sm font-semibold transition ${
-            !isCustomQuantity && selectedQuantity === q.label
-              ? "border-[#e3b33d] bg-[#fff8e7] shadow-sm"
-              : "border-black/10 bg-white hover:border-[#d9d9d9]"
-          }`}
-        >
-          <span>{q.label}</span>
-          <span>
-            ${(q.price + upcharge + q.qty * perPieceUpcharge).toFixed(2)}
-          </span>
-        </button>
-      ))}
+      {quantities.map((q) => {
+        const each   = q.price / q.qty;
+        const saving = baseEach > 0 ? Math.round((1 - each / baseEach) * 100) : 0;
+        return (
+          <button
+            key={q.label}
+            type="button"
+            onClick={() => onPresetSelect(q.label)}
+            aria-pressed={!isCustomQuantity && selectedQuantity === q.label}
+            className={`flex w-full items-center justify-between gap-3 rounded-2xl border px-4 py-3 text-left text-sm font-semibold transition ${
+              !isCustomQuantity && selectedQuantity === q.label
+                ? "border-[#e3b33d] bg-[#fff8e7] shadow-sm"
+                : "border-black/10 bg-white hover:border-[#d9d9d9]"
+            }`}
+          >
+            <span>
+              {q.label}
+              <span className="block text-xs font-normal text-gray-500">
+                ${(each + perPieceUpcharge).toFixed(2)} each
+              </span>
+            </span>
+            <span className="text-right">
+              ${(q.price + upcharge + q.qty * perPieceUpcharge).toFixed(2)}
+              {saving > 0 && (
+                <span className="mt-0.5 block rounded-full bg-green-100 px-2 py-0.5 text-[11px] font-bold text-green-700">
+                  Save {saving}%
+                </span>
+              )}
+            </span>
+          </button>
+        );
+      })}
 
       <div
         className={`rounded-2xl border px-4 py-4 transition ${
@@ -419,7 +441,16 @@ export function PriceSummary({
         </p>
       </div>
 
+      <StickyOrderBar
+        watchId="product-continue"
+        total={isValid ? total : null}
+        caption={isValid ? `$${perUnit.toFixed(2)} / ${unit}` : "Finish your selection"}
+        disabled={!isValid}
+        onSubmit={onSubmit}
+      />
+
       <button
+        id="product-continue"
         type="button"
         onClick={onSubmit}
         disabled={!isValid}
@@ -442,6 +473,71 @@ export function PriceSummary({
             </p>
           ))}
         </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Sticky Order Bar (phones) ────────────────────────────────
+
+/**
+ * Price and Continue pinned to the bottom of the screen on phones.
+ *
+ * On a phone the configurator stacks into one long column and the real
+ * Continue button ends up several screens down. The bar shows only while that
+ * button (found by `watchId`) is still below the viewport, so it never sits on
+ * top of the button itself or covers the footer once the customer has
+ * scrolled past it.
+ */
+export function StickyOrderBar({
+  watchId,
+  total,
+  caption,
+  disabled = false,
+  onSubmit,
+  label = "Continue",
+}: {
+  watchId: string;
+  /** Null shows a dash, for when the selection is not yet orderable. */
+  total: number | null;
+  caption: string;
+  disabled?: boolean;
+  onSubmit: () => void;
+  label?: string;
+}) {
+  const [show, setShow] = useState(false);
+
+  useEffect(() => {
+    const target = document.getElementById(watchId);
+    if (!target) return;
+    const observer = new IntersectionObserver(([entry]) => {
+      setShow(!entry.isIntersecting && entry.boundingClientRect.top > 0);
+    });
+    observer.observe(target);
+    return () => observer.disconnect();
+  }, [watchId]);
+
+  if (!show) return null;
+
+  return (
+    <div className="fixed inset-x-0 bottom-0 z-40 border-t border-black/10 bg-white/95 px-4 py-3 shadow-[0_-4px_16px_rgba(0,0,0,0.08)] backdrop-blur lg:hidden">
+      <div className="mx-auto flex max-w-xl items-center justify-between gap-4">
+        <div>
+          <p className="text-xl font-extrabold leading-none">
+            {total === null ? "—" : `$${total.toFixed(2)}`}
+          </p>
+          <p className="mt-1 text-xs text-gray-500">{caption}</p>
+        </div>
+        <button
+          type="button"
+          onClick={onSubmit}
+          disabled={disabled}
+          className={`rounded-2xl px-6 py-3 text-sm font-bold text-white transition ${
+            disabled ? "cursor-not-allowed bg-gray-400" : "bg-[#13294b] hover:bg-[#0f1f39]"
+          }`}
+        >
+          {label}
+        </button>
       </div>
     </div>
   );
@@ -489,11 +585,10 @@ export function SizeBreakdown({
 
   return (
     <div>
-      <Label>Size Breakdown</Label>
+      <Label>Sizes</Label>
       <p className="mb-2 text-xs text-gray-500">
-        Optional. If you fill it in, it has to add up to your order of {orderQty}{" "}
-        {unit}
-        {orderQty === 1 ? "" : "s"}.
+        Enter how many of each size and we&apos;ll set your quantity for you. Not
+        sure yet? Skip this, pick a quantity, and send sizes later.
       </p>
       <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 lg:grid-cols-7">
         {sizes.map((size) => (
@@ -528,8 +623,8 @@ export function SizeBreakdown({
           className={`mt-2 text-xs ${ok ? "text-gray-500" : "font-semibold text-red-600"}`}
         >
           {ok
-            ? `Total: ${total} ${unit}${total === 1 ? "" : "s"}, matches your order.`
-            : `Total: ${total} of ${orderQty}. Adjust the sizes or the quantity so they match.`}
+            ? `${total} ${unit}${total === 1 ? "" : "s"} total. Your quantity is set to match.`
+            : `Your sizes add up to ${total}, but the quantity is ${orderQty}. Change a size and the quantity will follow.`}
         </p>
       )}
     </div>

@@ -23,7 +23,7 @@ import { SiteHeader, TopBanner } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
 import { ProcessSteps } from "@/components/process-steps";
 import { PRODUCT_FEATURES } from "@/lib/products/features";
-import { Feature } from "@/components/products/product-ui";
+import { Feature, StickyOrderBar } from "@/components/products/product-ui";
 import {
   CAP_BRANDS,
   MAX_QUANTITY,
@@ -63,8 +63,12 @@ function openingBrand(): CapBrand {
     : (CAP_BRANDS.find((b) => getStylesByBrand(b).length > 0) ?? PREFERRED_BRAND);
 }
 
-/** The only quantities offered as one-tap presets. Anything else is typed. */
-const QUANTITY_PRESETS = [1, 5, 10, 20, 30];
+/**
+ * The only quantities offered as one-tap presets. Anything else is typed.
+ * Each sits on a price break in PRICE_TIERS, so a tap always lands on the
+ * best rate for that size of order.
+ */
+const QUANTITY_PRESETS = [1, 12, 25, 50, 100];
 
 /** Side and back are the only optional positions; front is always included. */
 const ADD_ON_POSITIONS: { position: PlacementPosition; label: string }[] = [
@@ -83,7 +87,7 @@ export default function CustomHatsPage() {
   );
   const [angle, setAngle]           = useState<PreviewAngle>("front");
   const [puff, setPuff]             = useState(false);
-  const [quantity, setQuantity]     = useState(20);
+  const [quantity, setQuantity]     = useState(12);
   /**
    * The raw text of the custom-quantity box, kept separate from `quantity`.
    *
@@ -93,7 +97,7 @@ export default function CustomHatsPage() {
    * The text is authoritative while typing; `quantity` only follows when the
    * text parses to something valid.
    */
-  const [qtyText, setQtyText]       = useState("20");
+  const [qtyText, setQtyText]       = useState("12");
 
   /** Optional placements, keyed by position, each carrying its art grade. */
   const [addOns, setAddOns] = useState<Record<string, PlacementArt | undefined>>({});
@@ -531,7 +535,15 @@ export default function CustomHatsPage() {
                     <p className="mt-3 text-xs font-semibold text-[#e3b33d]">Free shipping included</p>
                   )}
 
+                  <StickyOrderBar
+                    watchId="hat-continue"
+                    total={quote.total}
+                    caption={`${quote.quantity} hats · ${quote.perHat.toFixed(2)} each`}
+                    onSubmit={goToUpload}
+                  />
+
                   <button
+                    id="hat-continue"
                     type="button"
                     onClick={goToUpload}
                     className="mt-5 min-h-12 w-full rounded-full bg-[#e3b33d] px-6 text-base font-extrabold text-[#111111] transition hover:bg-[#f0c04d]"

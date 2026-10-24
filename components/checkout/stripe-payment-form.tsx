@@ -1,27 +1,33 @@
 "use client";
 
-import { forwardRef, useImperativeHandle, useState } from "react";
+import { forwardRef, useImperativeHandle } from "react";
 import { Elements, PaymentElement, useStripe, useElements } from "@stripe/react-stripe-js";
 import { stripePromise } from "@/lib/stripe";
 
 export type StripeFormHandle = {
-  confirmPayment: (clientSecret: string) => Promise<void>;
+  /** Checks the entered details. Throws with Stripe's message if incomplete. */
+  validate: () => Promise<void>;
+  /**
+   * Charges the customer. Resolves with the PaymentIntent id when the payment
+   * completed in place. Methods that need a bank or Klarna page navigate away
+   * to /order-confirmation instead, and this never resolves.
+   */
+  confirmPayment: (clientSecret: string) => Promise<string>;
 };
 
-type InnerProps = {
-  onValidated: () => void;
-};
-
-const StripeInner = forwardRef<StripeFormHandle, InnerProps>(function StripeInner({ onValidated }, ref) {
+const StripeInner = forwardRef<StripeFormHandle>(function StripeInner(_props, ref) {
   const stripe = useStripe();
   const elements = useElements();
-  const [error, setError] = useState("");
-  const [isSubmitting, setIsSubmitting] = useState(false);
 
   useImperativeHandle(ref, () => ({
+    async validate() {
+      if (!stripe || !elements) throw new Error("Payment form is still loading. Try again in a moment.");
+      const { error } = await elements.submit();
+      if (error) throw new Error(error.message ?? "Please check your payment details.");
+    },
     async confirmPayment(clientSecret: string) {
       if (!stripe || !elements) throw new Error("Stripe not ready.");
-      const { error } = await stripe.confirmPayment({
+      const { error, paymentIntent } = await stripe.confirmPayment({
         elements,
         clientSecret,
         confirmParams: {
@@ -30,57 +36,28 @@ const StripeInner = forwardRef<StripeFormHandle, InnerProps>(function StripeInne
         redirect: "if_required",
       });
       if (error) throw new Error(error.message);
+      return paymentIntent.id;
     },
   }));
 
-  async function handleSubmit() {
-    if (!stripe || !elements) return;
-    try {
-      setError("");
-      setIsSubmitting(true);
-      const { error } = await elements.submit();
-      if (error) {
-        setError(error.message ?? "Please check your payment details.");
-        return;
-      }
-      onValidated();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Something went wrong.");
-    } finally {
-      setIsSubmitting(false);
-    }
-  }
-
   return (
-    <div className="space-y-4">
-      <PaymentElement
-        options={{
-          layout: "tabs",
-          // Show Card first, then wallets (Apple/Google Pay) when the device
-          // supports them, ahead of bank/Klarna.
-          paymentMethodOrder: ["card", "apple_pay", "google_pay", "klarna", "us_bank_account"],
-          wallets: { applePay: "auto", googlePay: "auto" },
-        }}
-      />
-      {error && <p className="text-sm text-red-500">{error}</p>}
-      <button
-        type="button"
-        onClick={handleSubmit}
-        disabled={!stripe || isSubmitting}
-        className="mt-2 w-full rounded-xl bg-[#e5b43d] px-5 py-3 text-sm font-semibold text-black disabled:cursor-not-allowed disabled:opacity-60"
-      >
-        {isSubmitting ? "Validating..." : "Review Order"}
-      </button>
-    </div>
+    <PaymentElement
+      options={{
+        layout: "tabs",
+        // Show Card first, then wallets (Apple/Google Pay) when the device
+        // supports them, ahead of bank/Klarna.
+        paymentMethodOrder: ["card", "apple_pay", "google_pay", "klarna", "us_bank_account"],
+        wallets: { applePay: "auto", googlePay: "auto" },
+      }}
+    />
   );
 });
 
 type Props = {
-  onValidated: () => void;
   amount: number;
 };
 
-const StripePaymentForm = forwardRef<StripeFormHandle, Props>(function StripePaymentForm({ onValidated, amount }, ref) {
+const StripePaymentForm = forwardRef<StripeFormHandle, Props>(function StripePaymentForm({ amount }, ref) {
   return (
     <Elements
       stripe={stripePromise}
@@ -145,7 +122,7 @@ const StripePaymentForm = forwardRef<StripeFormHandle, Props>(function StripePay
         },
       }}
     >
-      <StripeInner ref={ref} onValidated={onValidated} />
+      <StripeInner ref={ref} />
     </Elements>
   );
 });

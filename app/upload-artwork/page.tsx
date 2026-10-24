@@ -75,6 +75,8 @@ function UploadArtworkContent() {
     }
   });
 
+  const hasArtwork = Object.values(artworkUrls).some(Boolean);
+
   const parsedQty = Math.max(1, Number.parseInt(quantity, 10) || 1);
   const backHref  = PRODUCT_SLUG[productType] ?? "/";
   const emoji     = PRODUCT_EMOJI[productType] ?? "📦";
@@ -136,7 +138,6 @@ function UploadArtworkContent() {
             title="Artwork"
             subtitle="Upload your embroidery artwork file."
             buttonLabel="Upload artwork"
-            helpText="Drag & Drop PNG, JPG, PDF, AI files up to 10 MB."
             onUploaded={(url) => setArtworkUrls((prev) => ({ ...prev, 0: url }))}
           />
         ) : (
@@ -170,7 +171,6 @@ function UploadArtworkContent() {
                   title={slot.title}
                   subtitle={slot.subtitle}
                   buttonLabel={slot.buttonLabel}
-                  helpText="Drag & Drop PNG, JPG, PDF, AI files up to 10 MB."
                   onUploaded={(url) => setArtworkUrls((prev) => ({ ...prev, [i]: url }))}
                 />
               </div>
@@ -205,28 +205,27 @@ function UploadArtworkContent() {
             </div>
           </div>
 
-          <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center lg:justify-end">
-            <div className="flex gap-3">
-              <Link prefetch={false}
-                href={backHref}
-                className="flex-1 rounded-xl border border-black/10 bg-white px-5 py-3 text-center text-sm font-semibold transition hover:bg-gray-50 sm:flex-none"
-              >
-                Back
-              </Link>
+          <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-start lg:justify-end">
+            <Link prefetch={false}
+              href={backHref}
+              className="order-2 rounded-xl border border-black/10 bg-white px-5 py-3 text-center text-sm font-semibold transition hover:bg-gray-50 sm:order-1"
+            >
+              Back
+            </Link>
+            <div className="order-1 sm:order-2">
               <button
                 type="button"
-                className="flex-1 rounded-xl bg-[#efefef] px-5 py-3 text-sm font-semibold text-gray-600 sm:flex-none"
+                onClick={handleAddToCart}
+                className="w-full rounded-xl bg-[#e5b43d] px-8 py-3 text-sm font-bold text-black transition hover:brightness-95 sm:w-auto"
               >
-                Skip artwork
+                Add to cart
               </button>
+              {!hasArtwork && (
+                <p className="mt-2 max-w-xs text-xs text-gray-500">
+                  No file handy? Add to cart anyway and we&apos;ll ask for your logo when we send your proof.
+                </p>
+              )}
             </div>
-            <button
-              type="button"
-              onClick={handleAddToCart}
-              className="w-full rounded-xl bg-[#e5b43d] px-5 py-3 text-sm font-semibold text-black transition hover:brightness-95 sm:w-auto"
-            >
-              Add to cart
-            </button>
           </div>
         </div>
       </div>

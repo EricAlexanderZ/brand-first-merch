@@ -101,6 +101,18 @@ export default function SafetyVestsPage() {
     if (!customQuantity) setCustomQuantityError("Please enter a quantity.");
   }
 
+  // Sizes drive the quantity: typing 2 M and 3 L orders 5, with no second
+  // number for the customer to keep in step.
+  function handleSizesChange(next: Record<string, number>) {
+    setSizeBreakdown(next);
+    const n = sizeBreakdownTotal(SIZES, next);
+    if (n > 0) {
+      setIsCustomQuantity(true);
+      setCustomQuantity(String(n));
+      setCustomQuantityError("");
+    }
+  }
+
   const sizeSummary = SIZES.filter((s) => (sizeBreakdown[s] || 0) > 0)
     .map((s) => `${s}×${sizeBreakdown[s]}`)
     .join(", ");
@@ -180,7 +192,7 @@ export default function SafetyVestsPage() {
               breakdown={sizeBreakdown}
               orderQty={qty}
               unit="vest"
-              onChange={setSizeBreakdown}
+              onChange={handleSizesChange}
             />
           </div>
         </div>

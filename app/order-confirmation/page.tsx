@@ -3,6 +3,7 @@ import { TopBanner, SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
 import { Wordmark } from "@/components/brand/wordmark";
 import { site } from "@/lib/site";
+import OrderFinalizer from "@/components/checkout/order-finalizer";
 
 export default function OrderConfirmationPage() {
   return (
@@ -13,14 +14,8 @@ export default function OrderConfirmationPage() {
       <section className="mx-auto max-w-2xl px-6 py-24 text-center">
         <Wordmark className="mx-auto h-16" sizes="78px" />
 
-        <div className="mt-8 inline-flex h-16 w-16 items-center justify-center rounded-full bg-green-100 text-3xl">
-          ✓
-        </div>
-
-        <h1 className="mt-6 text-4xl font-extrabold tracking-tight">Order Placed!</h1>
-        <p className="mt-4 text-lg text-gray-600">
-          Thank you for your order. Check your email — we&apos;ll send a confirmation and reach out shortly with your design proof.
-        </p>
+        {/* Saves the order and shows its number, or explains what went wrong. */}
+        <OrderFinalizer />
 
         <div className="mt-10 rounded-[1.75rem] bg-white p-8 text-left shadow-sm">
           <h2 className="text-lg font-bold">What happens next?</h2>
@@ -52,7 +47,7 @@ export default function OrderConfirmationPage() {
             Back to home
           </Link>
           <Link prefetch={false}
-            href="/products/custom-hats"
+            href="/#categories"
             className="rounded-full border border-[#13294b] px-6 py-3 text-sm font-semibold text-[#13294b] transition hover:bg-[#eef2f7]"
           >
             Shop more

@@ -9,6 +9,7 @@ import { ProcessSteps } from "@/components/process-steps";
 import { Label, PriceSummary } from "@/components/products/product-ui";
 import { POLO_STYLE, POLO_COLORS, POLO_SIZES } from "@/lib/products/polos";
 import { SOLIDS as CAP_COLORS } from "@/lib/products/caps";
+import { NEW_HIRE_PRICE } from "@/lib/order-pricing";
 
 /*
  * The New Hire — a fixed-price onboarding bundle.
@@ -23,7 +24,8 @@ import { SOLIDS as CAP_COLORS } from "@/lib/products/caps";
  * build or maintain.
  */
 
-const PRICE = 115;
+// Shared with the server, which is what actually charges it.
+const PRICE = NEW_HIRE_PRICE;
 
 const CONTENTS = [
   { qty: 3, name: "Embroidered polos", note: "Your colour and sizes, left chest logo" },

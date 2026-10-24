@@ -14,6 +14,8 @@ const PRODUCT_EMOJI: Record<string, string> = {
 export default function CartItemCard({ item }: { item: CartItem }) {
   const { updateQuantity, removeItem } = useCart();
   const emoji = item.image ?? PRODUCT_EMOJI[item.productType] ?? "📦";
+  const artworkCount = (item.artworkUrls ?? []).filter(Boolean).length;
+  const hasArtwork   = artworkCount > 0;
 
   return (
     <div className="rounded-[1.75rem] bg-white p-4 shadow-sm sm:p-6">
@@ -55,21 +57,42 @@ export default function CartItemCard({ item }: { item: CartItem }) {
         </div>
       </div>
 
+      <p className={`mt-3 text-sm ${hasArtwork ? "text-green-700" : "text-gray-500"}`}>
+        {hasArtwork
+          ? `✓ Artwork uploaded${artworkCount > 1 ? ` (${artworkCount} files)` : ""}`
+          : "No artwork yet. We'll ask for it with your proof."}
+      </p>
+
       {/* Bottom row: quantity + price */}
       <div className="mt-4 flex items-end justify-between gap-4">
-        <div>
-          <input
-            type="number"
-            min={item.minQty}
-            step={1}
-            value={item.quantity}
-            onChange={(e) => updateQuantity(item.cartItemId, Number(e.target.value))}
-            className="w-20 rounded-xl border border-black/10 px-3 py-2 text-sm sm:w-24"
-          />
-          {item.minQty > 1 && (
-            <p className="mt-1 text-xs text-gray-500">Min: {item.minQty}</p>
-          )}
-        </div>
+        {item.details.Sizes ? (
+          // Quantity is the sum of the sizes, so it is not editable here.
+          <div>
+            <p className="text-sm font-semibold">Qty {item.quantity}</p>
+            <p className="mt-1 max-w-[12rem] text-xs text-gray-500">
+              Set by your sizes. To change it, remove this item and add it again.
+            </p>
+          </div>
+        ) : (
+          <div>
+            <label className="mb-1 block text-xs font-semibold text-gray-500" htmlFor={`qty-${item.cartItemId}`}>
+              Quantity
+            </label>
+            <input
+              id={`qty-${item.cartItemId}`}
+              type="number"
+              inputMode="numeric"
+              min={item.minQty}
+              step={1}
+              value={item.quantity}
+              onChange={(e) => updateQuantity(item.cartItemId, Number(e.target.value))}
+              className="w-20 rounded-xl border border-black/10 px-3 py-2 text-sm sm:w-24"
+            />
+            {item.minQty > 1 && (
+              <p className="mt-1 text-xs text-gray-500">Min: {item.minQty}</p>
+            )}
+          </div>
+        )}
 
         <div className="text-right">
           <p className="text-xl font-bold">${item.price.toFixed(2)}</p>

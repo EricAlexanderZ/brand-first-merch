@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { Label, PlacementButton, ColorPicker, ProductPreview } from "@/components/products/product-ui";
 import ArtworkUpload from "@/components/artwork-upload";
 import StripePaymentForm, { type StripeFormHandle } from "@/components/checkout/stripe-payment-form";
+import { PENDING_ORDER_KEY, type PendingOrder } from "@/lib/pending-order";
 import type { DeliveryMethod } from "@/types/checkout";
 import {
   PLACEMENTS,
@@ -21,6 +22,7 @@ import {
   baseRatePerGarment,
   addOnsPerGarment,
   totalGarmentCount,
+  promoWeightOz,
   backOversizeApplies,
   isLocalCity,
   type Placement,
@@ -116,7 +118,6 @@ export default function EverydayPoloClient() {
   const [stage, setStage] = useState<"configure" | "pay">("configure");
   const [clientSecret, setClientSecret] = useState("");
   const [serverTotal, setServerTotal] = useState(0);
-  const [paymentValidated, setPaymentValidated] = useState(false);
   const [placing, setPlacing] = useState(false);
   const [checkoutError, setCheckoutError] = useState("");
   const stripeRef = useRef<StripeFormHandle>(null);
@@ -230,7 +231,7 @@ export default function EverydayPoloClient() {
           state: addr.state,
           zip: addr.zip,
           country: "US",
-          totalWeightOz: Math.max(16, garmentCount * 8),
+          totalWeightOz: promoWeightOz(config),
         }),
       });
       const data = await res.json();
@@ -257,7 +258,6 @@ export default function EverydayPoloClient() {
       if (!res.ok) throw new Error(data?.error || "Could not start checkout.");
       setClientSecret(data.clientSecret);
       setServerTotal(data.total);
-      setPaymentValidated(false);
       setStage("pay");
       setTimeout(() => {
         document.getElementById("promo-payment")?.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -272,7 +272,6 @@ export default function EverydayPoloClient() {
   function editOrder() {
     setStage("configure");
     setClientSecret("");
-    setPaymentValidated(false);
     setCheckoutError("");
   }
 
@@ -281,14 +280,18 @@ export default function EverydayPoloClient() {
     setCheckoutError("");
     setPlacing(true);
     try {
-      await stripeRef.current.confirmPayment(clientSecret);
+      await stripeRef.current.validate();
 
       const placementsWithArt = placements.filter((p) => artwork[p]);
 
-      const res = await fetch("/api/promo/everyday-polo", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+      // Parked before charging and saved by the confirmation page, the same
+      // way as main checkout: payment methods that leave the site to approve
+      // never run code after confirmPayment, and those orders used to be
+      // charged and never saved. See lib/pending-order.ts.
+      const pending: PendingOrder = {
+        endpoint: "/api/promo/everyday-polo",
+        customerEmail: email.trim(),
+        body: {
           config,
           fulfillment,
           customer: { name: name.trim(), email: email.trim(), phone: phone.trim() },
@@ -296,17 +299,17 @@ export default function EverydayPoloClient() {
           artworkUrls: placementsWithArt.map((p) => artwork[p]),
           artworkPlacements: placementsWithArt,
           instructions,
-        }),
-      });
+        },
+      };
+      sessionStorage.setItem(PENDING_ORDER_KEY, JSON.stringify(pending));
 
-      if (!res.ok) {
-        console.error("[everyday-polo] order save failed after payment succeeded");
-      }
+      const paymentIntentId = await stripeRef.current.confirmPayment(clientSecret);
 
-      window.location.href = "/order-confirmation";
+      window.location.href =
+        `/order-confirmation?payment_intent=${encodeURIComponent(paymentIntentId)}&redirect_status=succeeded`;
     } catch (err) {
+      sessionStorage.removeItem(PENDING_ORDER_KEY);
       setCheckoutError(err instanceof Error ? err.message : "Payment failed.");
-    } finally {
       setPlacing(false);
     }
   }
@@ -812,19 +815,16 @@ export default function EverydayPoloClient() {
                 key={Math.round(serverTotal * 100)}
                 ref={stripeRef}
                 amount={serverTotal}
-                onValidated={() => setPaymentValidated(true)}
               />
 
-              {paymentValidated && (
-                <button
-                  type="button"
-                  onClick={placeOrder}
-                  disabled={placing}
-                  className="mt-5 w-full rounded-xl bg-[#13294b] px-6 py-4 text-sm font-bold text-white transition hover:bg-[#0f1f39] disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  {placing ? "Processing..." : `Place Order, $${serverTotal.toFixed(2)}`}
-                </button>
-              )}
+              <button
+                type="button"
+                onClick={placeOrder}
+                disabled={placing}
+                className="mt-5 w-full rounded-xl bg-[#13294b] px-6 py-4 text-sm font-bold text-white transition hover:bg-[#0f1f39] disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {placing ? "Processing..." : `Place Order, $${serverTotal.toFixed(2)}`}
+              </button>
 
               {checkoutError && <p className="mt-4 text-sm text-red-500">{checkoutError}</p>}
 

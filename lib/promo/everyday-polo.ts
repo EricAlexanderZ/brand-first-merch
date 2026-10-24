@@ -128,6 +128,14 @@ export function totalGarmentCount(config: PromoConfig): number {
   return config.garments.reduce((sum, g) => sum + Math.max(0, Math.floor(g.quantity)), 0);
 }
 
+/**
+ * Parcel weight quoted to Shippo. Shared by the page (to show rates) and the
+ * server (to charge one), so both get the same quote for the same order.
+ */
+export function promoWeightOz(config: PromoConfig): number {
+  return Math.max(16, totalGarmentCount(config) * 8);
+}
+
 /** Left-chest rate for supplied garments, tiered on the total garment count. */
 export function suppliedUnitRate(totalGarments: number): number {
   return totalGarments >= SUPPLIED_BULK_THRESHOLD ? SUPPLIED_RATE_MANY : SUPPLIED_RATE_FEW;

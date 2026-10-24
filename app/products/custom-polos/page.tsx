@@ -21,6 +21,7 @@ import {
   type QuantityOption,
 } from "@/components/products/product-ui";
 import { getUnitPrice } from "@/lib/products/pricing";
+import { POLO_DUAL_PLACEMENT_PER_PIECE } from "@/lib/order-pricing";
 import {
   POLO_STYLE as STYLE,
   POLO_COLORS as colors,
@@ -38,7 +39,8 @@ import {
  * hardcoded list silently goes stale the moment pricing changes and the button
  * then advertises a number the cart will not honour.
  */
-const QUANTITY_PRESETS = [1, 5, 10, 20, 30];
+// Sit on the price breaks, so every preset shows the customer a real saving.
+const QUANTITY_PRESETS = [1, 5, 12, 24, 48];
 
 const quantities: QuantityOption[] = QUANTITY_PRESETS.map((qty) => ({
   label: `${qty} Polo${qty === 1 ? "" : "s"}`,
@@ -46,7 +48,8 @@ const quantities: QuantityOption[] = QUANTITY_PRESETS.map((qty) => ({
   price: qty * getUnitPrice("Custom Polos", qty),
 }));
 
-const DUAL_PER_PIECE = 5;
+// Shared with the server, which is what actually charges it.
+const DUAL_PER_PIECE = POLO_DUAL_PLACEMENT_PER_PIECE;
 
 
 const reviews = [
@@ -157,6 +160,18 @@ export default function CustomPolosPage() {
     if (!customQuantity) setCustomQuantityError("Please enter a quantity.");
   }
 
+  // Sizes drive the quantity: typing 2 M and 3 L orders 5, with no second
+  // number for the customer to keep in step.
+  function handleSizesChange(next: Record<string, number>) {
+    setSizeBreakdown(next);
+    const n = sizeBreakdownTotal(SIZES, next);
+    if (n > 0) {
+      setIsCustomQuantity(true);
+      setCustomQuantity(String(n));
+      setCustomQuantityError("");
+    }
+  }
+
   function goToUpload() {
     const placement = [leftChest ? "Left Chest Logo" : null, rightSideName ? "Right Side Name" : null]
       .filter(Boolean).join(", ");
@@ -218,19 +233,28 @@ export default function CustomPolosPage() {
             </div>
             <p className="mt-6 text-base leading-7 text-gray-600">
               Moisture-wicking 100% polyester with a clean embroidery surface. Order custom
-              embroidered polos for your brand, team, or business — starting at just 5 pieces.
+              embroidered polos for your brand, team, or business. Order as few as one.
             </p>
           </div>
           <div className="flex flex-col items-center justify-center gap-4">
             <p className="text-sm font-semibold uppercase tracking-wide text-gray-500">
               Available in {colors.length} colors
             </p>
+            {/* Real buttons: these looked clickable when they were decoration. */}
             <div className="hidden sm:flex max-w-xs sm:max-w-sm flex-wrap justify-center gap-2">
               {colors.map((color) => (
-                <div
+                <button
                   key={color.name}
+                  type="button"
                   title={color.name}
-                  className="h-7 w-7 rounded-full border border-black/10 shadow-sm"
+                  aria-label={`Choose ${color.name}`}
+                  onClick={() => {
+                    setSelectedColor(color.name);
+                    document.getElementById("configure")?.scrollIntoView({ behavior: "smooth" });
+                  }}
+                  className={`h-7 w-7 rounded-full border shadow-sm transition hover:scale-110 ${
+                    selectedColor === color.name ? "border-[#13294b] ring-2 ring-[#13294b]/30" : "border-black/10"
+                  }`}
                   style={{ backgroundColor: color.hex }}
                 />
               ))}
@@ -240,7 +264,7 @@ export default function CustomPolosPage() {
       </section>
 
       {/* Configurator */}
-      <section className="bg-[#ececeb] py-12">
+      <section id="configure" className="scroll-mt-20 bg-[#ececeb] py-12">
         <div className="mx-auto grid max-w-7xl grid-cols-1 gap-8 px-6 lg:grid-cols-[1.2fr_1.4fr_1.4fr_1fr]">
 
           {/* Col 1 — Style + Fit + Placement */}
@@ -345,7 +369,7 @@ export default function CustomPolosPage() {
                 breakdown={sizeBreakdown}
                 orderQty={activeQty}
                 unit="polo"
-                onChange={setSizeBreakdown}
+                onChange={handleSizesChange}
               />
             </div>
           </div>

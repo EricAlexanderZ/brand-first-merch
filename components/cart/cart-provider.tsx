@@ -10,31 +10,18 @@ import {
 } from "react";
 import type { AddCartItemInput, CartItem } from "@/types/cart";
 import { CART_STORAGE_KEY, createCartItem, getCartCount, getCartSubtotal } from "@/lib/cart";
-import { getUnitPrice } from "@/lib/products/pricing";
-import { parseAddOns, quoteOrder } from "@/lib/pricing";
+import { priceCartItem } from "@/lib/order-pricing";
 
 /**
- * Per-piece price for a cart line at a given quantity.
+ * Applies the shared pricing rules to a cart line.
  *
- * Hats are quoted through the cap engine rather than the flat per-product tier
- * table: their price depends on the style's blank cost and on which placements
- * are embroidered, neither of which `getUnitPrice` knows about. Any hat added
- * before this change has no styleId, so it falls through to the old path and
- * keeps whatever price it was added at instead of throwing.
+ * The same function decides the charge on the server, so pricing every line
+ * through it here keeps the cart showing exactly what checkout will charge.
+ * A line it cannot price is left as is; checkout refuses it with the reason.
  */
-function unitPriceFor(item: { productType: string; styleId?: string; addOns?: string }, qty: number): number {
-  if (item.productType === "Custom Hats" && item.styleId) {
-    try {
-      return quoteOrder({
-        styleId:    item.styleId,
-        quantity:   qty,
-        placements: parseAddOns(item.addOns),
-      }).perHat;
-    } catch {
-      // Unknown style id (catalog changed under an old cart). Fall through.
-    }
-  }
-  return getUnitPrice(item.productType, qty);
+function reprice(item: CartItem): CartItem {
+  const priced = priceCartItem(item);
+  return "error" in priced ? item : { ...item, ...priced };
 }
 
 type CartContextType = {
@@ -56,7 +43,8 @@ export function CartProvider({ children }: { children: ReactNode }) {
     const saved = localStorage.getItem(CART_STORAGE_KEY);
     if (!saved) return;
     try {
-      setItems(JSON.parse(saved));
+      // Repriced on load, so a cart saved before a price change shows today's price.
+      setItems((JSON.parse(saved) as CartItem[]).map(reprice));
     } catch {
       localStorage.removeItem(CART_STORAGE_KEY);
     }
@@ -67,16 +55,20 @@ export function CartProvider({ children }: { children: ReactNode }) {
   }, [items]);
 
   function addItem(input: AddCartItemInput) {
-    const newItem = createCartItem(input);
+    const created = createCartItem(input);
+    // Lines with a size breakdown are never merged: adding the quantities
+    // would double the count while the sizes still described one batch.
+    const newItem = reprice(
+      created.details.Sizes
+        ? { ...created, cartItemId: `${created.cartItemId}-${Date.now()}` }
+        : created
+    );
     setItems((prev) => {
       const existing = prev.find((c) => c.cartItemId === newItem.cartItemId);
       if (existing) {
-        const mergedQty    = existing.quantity + newItem.quantity;
-        const basePrice    = unitPriceFor(existing, mergedQty);
-        const newUnitPrice = basePrice + existing.perPieceUpcharge;
         return prev.map((c) =>
           c.cartItemId === newItem.cartItemId
-            ? { ...c, quantity: mergedQty, unitPrice: newUnitPrice, price: newUnitPrice * mergedQty + c.flatUpcharge }
+            ? reprice({ ...c, quantity: existing.quantity + newItem.quantity })
             : c
         );
       }
@@ -92,15 +84,11 @@ export function CartProvider({ children }: { children: ReactNode }) {
     setItems((prev) =>
       prev.map((item) => {
         if (item.cartItemId !== cartItemId) return item;
-        const safeQty    = Math.max(item.minQty, Math.floor(quantity));
-        const basePrice  = unitPriceFor(item, safeQty);
-        const newUnitPrice = basePrice + item.perPieceUpcharge;
-        return {
-          ...item,
-          quantity:  safeQty,
-          unitPrice: newUnitPrice,
-          price:     newUnitPrice * safeQty + item.flatUpcharge,
-        };
+        // A size breakdown fixes the quantity. Changing one without the other
+        // sent the shop "10 polos" alongside sizes for 5.
+        if (item.details.Sizes) return item;
+        const safeQty = Math.max(item.minQty, Math.floor(quantity) || item.minQty);
+        return reprice({ ...item, quantity: safeQty });
       })
     );
   }

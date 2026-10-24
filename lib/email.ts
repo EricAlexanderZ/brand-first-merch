@@ -51,16 +51,19 @@ export function sendOrderConfirmation({
   to,
   name,
   orderId,
+  orderNumber,
   items,
   total,
 }: {
   to: string;
   name: string;
   orderId: string;
+  /** The BFM number the customer sees on the site; preferred when present. */
+  orderNumber?: string;
   items: { productType: string; quantity: number; price: number }[];
   total: number;
 }) {
-  const ref = orderId.slice(0, 8).toUpperCase();
+  const ref = orderNumber ?? orderId.slice(0, 8).toUpperCase();
   const rows = items
     .map(
       (i) =>
@@ -119,12 +122,14 @@ export function sendOrderConfirmation({
 
 export function sendAdminNewOrderAlert({
   orderId,
+  orderNumber,
   customerName,
   customerEmail,
   items,
   total,
 }: {
   orderId: string;
+  orderNumber?: string;
   customerName: string;
   customerEmail: string;
   items: { productType: string; quantity: number }[];
@@ -133,7 +138,7 @@ export function sendAdminNewOrderAlert({
   const adminEmail = process.env.ADMIN_NOTIFICATION_EMAIL;
   if (!adminEmail) return Promise.resolve();
 
-  const ref = orderId.slice(0, 8).toUpperCase();
+  const ref = orderNumber ?? orderId.slice(0, 8).toUpperCase();
   const itemList = items.map((i) => `${i.productType} × ${i.quantity}`).join(", ");
 
   return send({
@@ -153,6 +158,56 @@ export function sendAdminNewOrderAlert({
            style="display:inline-block;margin-top:20px;background:#13294b;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:700">
           View Order in Admin
         </a>
+      </div>
+    `,
+  });
+}
+
+// ─── Admin: a paid order that could not be saved ─────────────────────────────
+
+/**
+ * Sends the shop everything about a paid order the database refused.
+ *
+ * The customer has been charged at this point, so this email is the only
+ * record of what they bought. It carries the raw order, artwork links
+ * included, so the order can be entered by hand.
+ */
+export function sendAdminOrderSaveFailure({
+  order,
+  reason,
+}: {
+  order: {
+    customerName?: string;
+    customerEmail?: string;
+    customerPhone?: string;
+    total?: number;
+    paymentIntentId?: string;
+  } & Record<string, unknown>;
+  reason: string;
+}) {
+  const adminEmail = process.env.ADMIN_NOTIFICATION_EMAIL;
+  if (!adminEmail) return Promise.resolve(false);
+
+  return send({
+    to: adminEmail,
+    subject: `ACTION NEEDED: paid order not saved — ${order.customerName ?? "unknown"} — ${Number(order.total ?? 0).toFixed(2)}`,
+    html: `
+      <div style="font-family:Arial,sans-serif;max-width:640px;margin:0 auto">
+        <h2 style="margin:0 0 8px;color:#b91c1c">A customer paid, but the order did not save</h2>
+        <p style="margin:0 0 16px;color:#555">
+          Enter this order by hand. The customer was told their payment went through and that
+          you would email their order number.
+        </p>
+        <table style="font-size:14px;border-collapse:collapse">
+          <tr><td style="padding:4px 12px 4px 0;color:#555">Customer</td><td>${esc(order.customerName ?? "")}</td></tr>
+          <tr><td style="padding:4px 12px 4px 0;color:#555">Email</td><td>${esc(order.customerEmail ?? "")}</td></tr>
+          <tr><td style="padding:4px 12px 4px 0;color:#555">Phone</td><td>${esc(order.customerPhone ?? "")}</td></tr>
+          <tr><td style="padding:4px 12px 4px 0;color:#555">Total</td><td>${Number(order.total ?? 0).toFixed(2)}</td></tr>
+          <tr><td style="padding:4px 12px 4px 0;color:#555">Stripe payment</td><td>${esc(order.paymentIntentId ?? "not recorded")}</td></tr>
+          <tr><td style="padding:4px 12px 4px 0;color:#555">Error</td><td>${esc(reason)}</td></tr>
+        </table>
+        <p style="margin:20px 0 6px;font-weight:700">Full order</p>
+        <pre style="white-space:pre-wrap;font-size:12px;background:#f6f6f4;padding:12px;border-radius:8px">${esc(JSON.stringify(order, null, 2))}</pre>
       </div>
     `,
   });

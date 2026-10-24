@@ -57,10 +57,6 @@ export default function CheckoutSummary({
           </div>
         </div>
       </div>
-
-      <div className="rounded-[1.25rem] bg-white px-5 py-4 shadow-sm">
-        <p className="text-base font-semibold">Promo code</p>
-      </div>
     </div>
   );
 }

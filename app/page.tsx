@@ -48,13 +48,14 @@ export default function Home() {
             {/* Mobile stats */}
             <div className="mt-6 flex items-center justify-center gap-0 rounded-2xl bg-black/40 px-5 py-3 lg:hidden">
               <div className="text-center">
-                <p className="text-xl font-extrabold text-white">680+</p>
-                <p className="text-xs text-white/60">Happy customers</p>
+                {/* Same figures as the desktop stats below; they used to disagree. */}
+                <p className="text-xl font-extrabold text-white">500+</p>
+                <p className="text-xs text-white/60">Orders completed</p>
               </div>
               <div className="mx-5 h-8 w-px bg-white/30" />
               <div className="text-center">
                 <p className="text-xl font-extrabold text-white">5/5</p>
-                <p className="text-xs text-white/60">Average review score</p>
+                <p className="text-xs text-white/60">Customer experience</p>
               </div>
             </div>
 
