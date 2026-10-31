@@ -3,13 +3,14 @@ import { SiteFooter } from "@/components/site-footer";
 import { site } from "@/lib/site";
 
 // ─── Brand constants ──────────────────────────────────────────
-// The registered entity. Unchanged by the rebrand: Brand First Merch is
-// the trade name, and naming the wrong party voids the agreement.
-const COMPANY = "El Hilo Co LLC";
+// The business as the owner registers it: a sole proprietorship trading as
+// Brand First Merch (EIN on file; there is no LLC). Kept in step with the
+// name on the texting (A2P 10DLC) registration, which carriers compare.
+const COMPANY = site.name;
 const SITE    = "Brand First Merch";
 const ADDRESS = "Alton, TX";
 const EMAIL   = site.email;
-const UPDATED = "April 25, 2026";
+const UPDATED = "October 31, 2026";
 
 // ─── Shared primitives ────────────────────────────────────────
 
@@ -140,7 +141,7 @@ export default function PrivacyPage() {
         <div className="mt-8 rounded-[2rem] bg-white px-10 py-10 shadow-sm">
 
           <Prose>
-            This Privacy Policy describes how {COMPANY} ("{SITE}", "we", "us", or "our") collects,
+            This Privacy Policy describes how {COMPANY} ("we", "us", or "our") collects,
             uses, and shares information about you when you use our website and services. Please
             read this policy carefully.
           </Prose>
@@ -338,6 +339,25 @@ export default function PrivacyPage() {
             location="United States"
             privacyUrl="https://www.facebook.com/policy.php"
           />
+
+          <Divider />
+
+          {/* Text messaging. Carriers review this wording before approving the
+              business texting number (A2P 10DLC); keep the no-sharing sentences. */}
+          <SectionTitle>Text Messaging (SMS)</SectionTitle>
+          <Prose>
+            When you call or text {SITE}, our automated assistant may ask whether we can text you.
+            If you agree, we send texts about your inquiry, such as a link to the product you asked
+            about, and up to two follow-up messages. Message frequency varies. Message and data
+            rates may apply. Reply STOP to any message to opt out, or HELP for help, or contact us
+            at {EMAIL}.
+          </Prose>
+          <Prose>
+            No mobile information will be shared with third parties or affiliates for marketing or
+            promotional purposes. Text messaging originator opt-in data and consent will not be
+            shared with any third parties. Phone numbers are shared only with the service providers
+            that deliver our calls and texts, solely to provide that service.
+          </Prose>
 
           <Divider />
 

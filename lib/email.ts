@@ -163,6 +163,57 @@ export function sendAdminNewOrderAlert({
   });
 }
 
+// ─── Admin: a new lead from the AI receptionist ──────────────────────────────
+
+export function sendAdminLeadAlert(lead: {
+  name: string | null;
+  phone: string;
+  email: string | null;
+  product: string | null;
+  quantity: number | null;
+  deadline: string | null;
+  notes: string | null;
+  summary: string | null;
+  isSalesLead: boolean;
+  textStatus: string;
+}) {
+  const adminEmail = process.env.ADMIN_NOTIFICATION_EMAIL;
+  if (!adminEmail) return Promise.resolve(false);
+
+  const row = (label: string, value: string | number | null) =>
+    value === null || value === ""
+      ? ""
+      : `<tr><td style="padding:4px 12px 4px 0;color:#555;vertical-align:top">${label}</td><td>${esc(String(value))}</td></tr>`;
+
+  const who = lead.name || lead.phone;
+  return send({
+    to: adminEmail,
+    subject: lead.isSalesLead
+      ? `New call lead: ${who}${lead.product ? ` · ${lead.product}` : ""}${lead.quantity ? ` × ${lead.quantity}` : ""}`
+      : `Call from ${who}`,
+    html: `
+      <div style="font-family:Arial,sans-serif;max-width:560px;margin:0 auto">
+        <h2 style="margin:0 0 12px">${lead.isSalesLead ? "New lead from the AI receptionist" : "The AI receptionist took a call"}</h2>
+        <table style="font-size:14px;border-collapse:collapse">
+          ${row("Name", lead.name)}
+          ${row("Phone", lead.phone)}
+          ${row("Email", lead.email)}
+          ${row("Wants", lead.product)}
+          ${row("Quantity", lead.quantity)}
+          ${row("Needed by", lead.deadline)}
+          ${row("Notes", lead.notes)}
+          ${row("Text to caller", lead.textStatus)}
+        </table>
+        ${lead.summary ? `<p style="margin:16px 0 0;font-size:14px;line-height:1.5"><strong>Summary:</strong> ${esc(lead.summary)}</p>` : ""}
+        <a href="${process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000"}/admin/leads"
+           style="display:inline-block;margin-top:20px;background:#13294b;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:700">
+          View leads
+        </a>
+      </div>
+    `,
+  });
+}
+
 // ─── Admin: a paid order that could not be saved ─────────────────────────────
 
 /**

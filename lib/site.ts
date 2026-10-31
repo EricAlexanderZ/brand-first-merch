@@ -12,11 +12,11 @@ export const site = {
   name: "Brand First Merch",
 
   /**
-   * The registered entity, which the rebrand does not change. Brand First Merch
-   * is a trade name; the LLC is still El Hilo Co LLC until that is refiled.
-   * Terms, Privacy and anything contractual must name this, not the brand.
+   * The business as registered: a sole proprietorship (EIN on file) trading as
+   * Brand First Merch. There is no LLC; earlier copy named "El Hilo Co LLC",
+   * which was never the registered entity. Terms and Privacy name this.
    */
-  legalName: "El Hilo Co LLC",
+  legalName: "Brand First Merch",
 
   /**
    * The previous trade name. Kept deliberately rather than deleted.

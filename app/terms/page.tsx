@@ -3,13 +3,13 @@ import { SiteFooter } from "@/components/site-footer";
 import { site } from "@/lib/site";
 
 // ─── Brand constants ─────────────────────────────────────────
-// The registered entity. Unchanged by the rebrand: Brand First Merch is
-// the trade name, and naming the wrong party voids the agreement.
-const COMPANY   = "El Hilo Co LLC";
+// A sole proprietorship trading as Brand First Merch (there is no LLC). Kept
+// in step with the name on the texting (A2P 10DLC) registration.
+const COMPANY   = site.name;
 const SITE      = "Brand First Merch";
 const ADDRESS   = "Alton, TX";
 const EMAIL     = site.email;
-const UPDATED   = "April 25, 2026";
+const UPDATED   = "October 31, 2026";
 
 // ─── Shared primitives ────────────────────────────────────────
 
@@ -104,7 +104,7 @@ export default function TermsPage() {
 
           <SubTitle>This document</SubTitle>
           <Prose>
-            This document is a legal agreement between you, the User, and {COMPANY}, the entity
+            This document is a legal agreement between you, the User, and {COMPANY}, the business
             providing {SITE}. It governs your use of our online properties and the services we
             provide. "Legal agreement" means that the terms of this agreement are binding on the
             relationship between you and us once you have accepted them.
@@ -273,6 +273,21 @@ export default function TermsPage() {
           <Prose>
             In case of failure to collect products by the carrier's deadline, products will be
             returned to the Owner, who will refund the purchase price but not the shipping cost.
+          </Prose>
+
+          <Divider />
+
+          {/* Text messaging terms. Carriers review this before approving the
+              business texting number (A2P 10DLC). */}
+          <SectionTitle>Text Messaging Terms</SectionTitle>
+          <Prose>
+            {SITE} texts are sent only to people who agree to receive them, usually when our
+            automated phone assistant asks during a call. Texts relate to your inquiry: a link to
+            the product you asked about and up to two follow-up messages. Message frequency varies.
+            Message and data rates may apply. Reply STOP to cancel at any time; you will receive one
+            confirmation and no further texts. Reply HELP for help, or email {EMAIL}. Carriers are
+            not liable for delayed or undelivered messages. Consent to receive texts is not a
+            condition of purchase.
           </Prose>
 
           <Divider />

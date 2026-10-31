@@ -7,6 +7,7 @@ import { Wordmark } from "@/components/brand/wordmark";
 const NAV = [
   { href: "/admin",            label: "Dashboard", icon: "▣" },
   { href: "/admin/orders",     label: "Orders",    icon: "≡" },
+  { href: "/admin/leads",      label: "Leads",     icon: "☏" },
   { href: "/admin/customers",  label: "Customers", icon: "◎" },
   { href: "/admin/analytics",  label: "Analytics", icon: "↗" },
   { href: "/admin/archive",    label: "Archive",   icon: "⊡" },
