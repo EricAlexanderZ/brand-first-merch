@@ -3,7 +3,7 @@ import { businessFacts, RECEPTIONIST_PRODUCTS } from "@/lib/receptionist/knowled
 
 /**
  * The AI receptionist's Retell configuration, kept in code so it is reviewed
- * and versioned like the rest of the site. scripts/receptionist-setup.ts sends
+ * and versioned like the rest of the site. scripts/receptionist-setup.mts sends
  * it to Retell. Edit here, then run the script again; editing in the Retell
  * dashboard instead would be overwritten on the next run.
  */
