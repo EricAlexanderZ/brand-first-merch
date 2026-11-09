@@ -12,13 +12,15 @@ const TIERS: Record<string, PricingTier[]> = {
     { minQty: 12,  unitPrice: 18    },
     { minQty: 5,   unitPrice: 23    },
   ],
+  /*
+   * Polos, left chest logo included. Eric's tiers, 2026-11-08, given as
+   * 1-4 / 5-10 / 10+. Those overlap at 10, resolved in the customer's favour:
+   * exactly 10 gets the 10+ rate.
+   */
   "Custom Polos": [
-    { minQty: 100, unitPrice: 17    },
-    { minQty: 72,  unitPrice: 17.5  },
-    { minQty: 48,  unitPrice: 18.75 },
-    { minQty: 24,  unitPrice: 20    },
-    { minQty: 12,  unitPrice: 21    },
-    { minQty: 5,   unitPrice: 30    },
+    { minQty: 10, unitPrice: 18.99 },
+    { minQty: 5,  unitPrice: 22.99 },
+    { minQty: 1,  unitPrice: 24.99 },
   ],
   "Custom Hoodies": [
     { minQty: 48, unitPrice: 31 },
@@ -107,8 +109,8 @@ export function shirtPrintingType(fabric: ShirtFabric, sleeve: ShirtSleeve): str
 /**
  * Minimum order quantity, per product type.
  *
- * Everything is 1: single pieces are accepted across the catalog. The tier
- * tables below still start at 5 for hats and polos, which is deliberate — a
+ * Everything is 1: single pieces are accepted across the catalog. The hat
+ * tier table above still starts at 5, which is deliberate — a
  * quantity under the lowest tier falls through to the highest per-piece rate
  * rather than being rejected. Small orders cost more each, they are simply no
  * longer refused.

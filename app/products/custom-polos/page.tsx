@@ -40,7 +40,7 @@ import {
  * then advertises a number the cart will not honour.
  */
 // Sit on the price breaks, so every preset shows the customer a real saving.
-const QUANTITY_PRESETS = [1, 5, 12, 24, 48];
+const QUANTITY_PRESETS = [1, 5, 10, 24, 48];
 
 const quantities: QuantityOption[] = QUANTITY_PRESETS.map((qty) => ({
   label: `${qty} Polo${qty === 1 ? "" : "s"}`,
